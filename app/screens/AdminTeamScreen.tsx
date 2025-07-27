@@ -73,19 +73,19 @@ const AdminTeamScreen: React.FC<AdminTeamScreenProps> = ({ onNavigate, onBack })
       console.log('Loaded barbers:', barbersData);
       console.log('Loaded worker images:', imagesData);
       
-      // Auto-fix Ron Turgeman's image if needed
-      const ronTurgeman = barbersData.find(b => b.name === 'Ron turgeman');
-      if (ronTurgeman && imagesData.length > 0 && !ronTurgeman.image) {
-        const ronImage = imagesData.find(img => img.includes('ronturgeman'));
-        if (ronImage) {
-          console.log('Auto-fixing Ron Turgeman image:', ronImage);
+      // Auto-fix Ran Algrisi's image if needed
+      const ranAlgrisi = barbersData.find(b => b.name === 'רן אגלריסי');
+      if (ranAlgrisi && imagesData.length > 0 && !ranAlgrisi.image) {
+        const ranImage = imagesData.find(img => img.includes('ranalgrisi'));
+        if (ranImage) {
+          console.log('Auto-fixing Ran Algrisi image:', ranImage);
           try {
-            await updateBarberProfile(ronTurgeman.id, { image: ronImage });
+            await updateBarberProfile(ranAlgrisi.id, { image: ranImage });
             // Reload barbers to reflect changes
             const updatedBarbers = await getBarbers();
             setBarbers(updatedBarbers);
           } catch (error) {
-            console.error('Error updating Ron Turgeman image:', error);
+            console.error('Error updating Ran Algrisi image:', error);
           }
         }
       }

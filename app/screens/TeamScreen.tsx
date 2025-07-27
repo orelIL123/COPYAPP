@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
     Alert,
@@ -97,11 +98,10 @@ const TeamScreen: React.FC<TeamScreenProps> = ({ onNavigate, onBack }) => {
       
       {/* Hero Section */}
       <View style={styles.heroSection}>
-        <Image
-          source={require('../../assets/images/atmosphere/atmosphere.png')}
-          style={styles.heroImage}
-          resizeMode="cover"
-        />
+        <View style={[styles.heroImage, { backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }]}>
+          <Ionicons name="people-outline" size={64} color="#666" />
+          <Text style={{ color: '#666', marginTop: 8, fontSize: 16 }}>צוות מקצועי</Text>
+        </View>
         <View style={styles.heroOverlay} />
         <View style={styles.heroContent}>
           <Text style={styles.heroTitle}>הכירו את הצוות המקצועי שלנו</Text>
@@ -134,7 +134,9 @@ const TeamScreen: React.FC<TeamScreenProps> = ({ onNavigate, onBack }) => {
                           resizeMode="cover"
                         />
                       ) : (
-                        <Text style={styles.barberPlaceholder}>✂️</Text>
+                        <View style={[styles.barberImage, { backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }]}>
+                          <Ionicons name="person-outline" size={48} color="#666" />
+                        </View>
                       )}
                     </View>
                   </View>

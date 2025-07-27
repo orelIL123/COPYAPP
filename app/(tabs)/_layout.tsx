@@ -1,6 +1,6 @@
 import { Tabs, useRouter, useSegments } from 'expo-router';
 import React from 'react';
-import { useColorScheme } from '../../hooks/useColorScheme';
+import { useColorScheme } from 'react-native';
 import BottomNav from '../components/BottomNav';
 
 export default function TabLayout() {

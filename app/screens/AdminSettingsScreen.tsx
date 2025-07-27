@@ -26,8 +26,8 @@ const AdminSettingsScreen: React.FC<AdminSettingsScreenProps> = ({ onNavigate, o
   
   // Settings states
   const [welcomeMessage, setWelcomeMessage] = useState('שלום, ברוכים הבאים');
-  const [subtitleMessage, setSubtitleMessage] = useState('ל-TURGI ברברשופ');
-  const [aboutUsText, setAboutUsText] = useState('ברוכים הבאים למספרה של רון תורג׳מן! כאן תיהנו מחוויה אישית, מקצועית ומפנקת, עם יחס חם לכל לקוח. רון, בעל ניסיון של שנים בתחום, מזמין אתכם להתרווח, להתחדש ולהרגיש בבית.');
+  const [subtitleMessage, setSubtitleMessage] = useState('ל-Barbers Bar');
+  const [aboutUsText, setAboutUsText] = useState('ברוכים הבאים למספרה של רן אלגריסי! כאן תיהנו מחוויה אישית, מקצועית ומפנקת, עם יחס חם לכל לקוח. רן, בעל ניסיון של שנים בתחום, מזמין אתכם להתרווח, להתחדש ולהרגיש בבית.');
   const [popupMessage, setPopupMessage] = useState('');
 
   useEffect(() => {
@@ -51,12 +51,12 @@ const AdminSettingsScreen: React.FC<AdminSettingsScreenProps> = ({ onNavigate, o
       if (welcomeDoc.exists()) {
         const data = welcomeDoc.data();
         setWelcomeMessage(data.welcome || 'שלום, ברוכים הבאים');
-        setSubtitleMessage(data.subtitle || 'ל-TURGI ברברשופ');
+        setSubtitleMessage(data.subtitle || 'ל-Barbers Bar');
       } else {
         // Create default if doesn't exist
         await setDoc(doc(db, 'settings', 'homeMessages'), {
           welcome: 'שלום, ברוכים הבאים',
-          subtitle: 'ל-TURGI ברברשופ',
+          subtitle: 'ל-Barbers Bar',
           createdAt: new Date()
         });
       }
@@ -68,7 +68,7 @@ const AdminSettingsScreen: React.FC<AdminSettingsScreenProps> = ({ onNavigate, o
         setAboutUsText(data.text || '');
       } else {
         // Create default if doesn't exist
-        const defaultAboutText = 'ברוכים הבאים למספרה של רון תורג׳מן! כאן תיהנו מחוויה אישית, מקצועית ומפנקת, עם יחס חם לכל לקוח. רון, בעל ניסיון של שנים בתחום, מזמין אתכם להתרווח, להתחדש ולהרגיש בבית.';
+        const defaultAboutText = 'ברוכים הבאים למספרה של רן אלגריסי! כאן תיהנו מחוויה אישית, מקצועית ומפנקת, עם יחס חם לכל לקוח. רן, בעל ניסיון של שנים בתחום, מזמין אתכם להתרווח, להתחדש ולהרגיש בבית.';
         await setDoc(doc(db, 'settings', 'aboutUsText'), {
           text: defaultAboutText,
           createdAt: new Date()
@@ -191,7 +191,7 @@ const AdminSettingsScreen: React.FC<AdminSettingsScreenProps> = ({ onNavigate, o
               style={styles.textInput}
               value={subtitleMessage}
               onChangeText={setSubtitleMessage}
-              placeholder="ל-TURGI ברברשופ"
+              placeholder="ל-Barbers Bar"
               textAlign="right"
               multiline
             />

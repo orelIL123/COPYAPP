@@ -3,12 +3,12 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'nativewind';
+import { I18nextProvider } from 'react-i18next';
 import 'react-native-reanimated';
 import '../app/globals.css';
-import { I18nextProvider } from 'react-i18next';
 import i18n from './i18n';
 
-import { useColorScheme } from '../hooks/useColorScheme';
+import { useColorScheme } from 'react-native';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();

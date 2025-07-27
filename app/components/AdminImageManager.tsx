@@ -1,26 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-  Alert,
-  ScrollView,
-  ActivityIndicator,
-  Dimensions,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  getAppImages,
-  updateAtmosphereImage,
-  updateAboutUsImage,
-  addAppGalleryImage,
-  removeAppGalleryImage,
-  replaceAppGalleryImage,
-  AppImages
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import {
+    addAppGalleryImage,
+    AppImages,
+    getAppImages,
+    removeAppGalleryImage,
+    replaceAppGalleryImage,
+    updateAboutUsImage,
+    updateAtmosphereImage
 } from '../../services/firebase';
 import ConfirmationModal from './ConfirmationModal';
 
@@ -191,15 +191,20 @@ const AdminImageManager: React.FC<AdminImageManagerProps> = ({ onClose }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('admin.atmosphere_image')}</Text>
           <View style={styles.imageContainer}>
-            <Image
-              source={
-                images.atmosphereImage
-                  ? { uri: images.atmosphereImage }
-                  : require('../../assets/images/atmosphere/atmosphere.png')
-              }
-              style={styles.previewImage}
-              resizeMode="cover"
-            />
+            <View style={styles.previewImage}>
+              {images.atmosphereImage ? (
+                <Image
+                  source={{ uri: images.atmosphereImage }}
+                  style={styles.previewImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={[styles.previewImage, { backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }]}>
+                  <Ionicons name="image-outline" size={48} color="#666" />
+                  <Text style={{ color: '#666', marginTop: 8 }}>אווירה</Text>
+                </View>
+              )}
+            </View>
             <TouchableOpacity
               style={styles.updateButton}
               onPress={handleUpdateAtmosphere}
@@ -215,15 +220,20 @@ const AdminImageManager: React.FC<AdminImageManagerProps> = ({ onClose }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('admin.about_us_image')}</Text>
           <View style={styles.imageContainer}>
-            <Image
-              source={
-                images.aboutUsImage
-                  ? { uri: images.aboutUsImage }
-                  : require('../../assets/images/ABOUT US/aboutus.png')
-              }
-              style={styles.previewImage}
-              resizeMode="cover"
-            />
+            <View style={styles.previewImage}>
+              {images.aboutUsImage ? (
+                <Image
+                  source={{ uri: images.aboutUsImage }}
+                  style={styles.previewImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={[styles.previewImage, { backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }]}>
+                  <Ionicons name="information-circle-outline" size={48} color="#666" />
+                  <Text style={{ color: '#666', marginTop: 8 }}>אודות</Text>
+                </View>
+              )}
+            </View>
             <TouchableOpacity
               style={styles.updateButton}
               onPress={handleUpdateAboutUs}

@@ -1,60 +1,43 @@
 import { useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
-import React, { useEffect } from 'react';
-import { Animated, Dimensions, Image, StyleSheet, View } from 'react-native';
-import { auth } from './config/firebase';
-
-const { width, height } = Dimensions.get('window');
+import { useEffect } from 'react';
+import { Image, StyleSheet, Text, View } from 'react-native';
+import { auth } from '../config/firebase';
 
 export default function SplashScreen() {
   const router = useRouter();
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const scaleAnim = React.useRef(new Animated.Value(0.8)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
     const timer = setTimeout(() => {
       onAuthStateChanged(auth, (user) => {
         if (user) {
-          router.replace('/(tabs)');
+          // Check if user is admin
+          if (user.email === 'orel895@gmail.com') {
+            router.replace('/admin-home');
+          } else {
+            router.replace('/(tabs)');
+          }
         } else {
-          router.replace('/screens/WelcomeAuthScreen');
+          // Guest mode - go directly to home
+          router.replace('/(tabs)');
         }
       });
-    }, 1800);
+    }, 2000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [router]);
 
   return (
     <View style={styles.container}>
-      <Animated.View
-        style={[
-          styles.imageContainer,
-          {
-            opacity: fadeAnim,
-            transform: [{ scale: scaleAnim }],
-          },
-        ]}
-      >
+      <View style={styles.logoContainer}>
         <Image
-          source={require('../assets/images/TURGI.png')}
-          style={styles.image}
-          resizeMode="cover"
+          source={require('../assets/images/icon.png')}
+          style={styles.logo}
+          resizeMode="contain"
         />
-      </Animated.View>
+        <Text style={styles.appName}>Barbers Bar</Text>
+        <Text style={styles.tagline}>המספרה המקצועית שלך</Text>
+      </View>
     </View>
   );
 }
@@ -62,15 +45,28 @@ export default function SplashScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  imageContainer: {
-    flex: 1,
-    width: width,
-    height: height,
+  logoContainer: {
+    alignItems: 'center',
   },
-  image: {
-    width: '100%',
-    height: '100%',
+  logo: {
+    width: 120,
+    height: 120,
+    marginBottom: 24,
+  },
+  appName: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  tagline: {
+    fontSize: 18,
+    color: '#666666',
+    textAlign: 'center',
   },
 });

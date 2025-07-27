@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { onAuthStateChanged } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, getFirestore, query, where } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,18 +11,15 @@ import {
     Image,
     ImageBackground,
     InteractionManager,
-    Linking,
-    Modal,
     SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
-import NotificationPanel from '../components/NotificationPanel';
+import { auth } from '../../config/firebase';
 import SideMenu from '../components/SideMenu';
-import TermsModal from '../components/TermsModal';
 import TopNav from '../components/TopNav';
 
 const { height } = Dimensions.get('window');
@@ -30,7 +28,6 @@ interface HomeScreenProps {
   onNavigate: (screen: string) => void;
 }
 
-// Simple NeonButton component
 const NeonButton: React.FC<{
   title: string;
   onPress: () => void;
@@ -66,16 +63,17 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
     atmosphere: string;
     aboutUs: string;
     gallery: string[];
+    aboutUsBottom: string;
   }>({
     atmosphere: '',
     aboutUs: '',
     gallery: [],
+    aboutUsBottom: '',
   });
-  
-  // Dynamic content states
-  const [welcomeMessage, setWelcomeMessage] = useState('');
-  const [subtitleMessage, setSubtitleMessage] = useState('');
-  const [aboutUsMessage, setAboutUsMessage] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [welcomeMessage, setWelcomeMessage] = useState('ברוכים הבאים ל-Barbers Bar!');
+  const [subtitleMessage, setSubtitleMessage] = useState('המספרה המקצועית שלך');
+  const [aboutUsMessage, setAboutUsMessage] = useState('ברוכים הבאים ל-Barbers Bar! כאן תיהנו מחוויה אישית, מקצועית ומפנקת, עם יחס חם לכל לקוח. רן אגלריסי, בעל ניסיון של שנים בתחום, מזמין אתכם להתרווח, להתחדש ולהרגיש בבית.');
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState('');
 
@@ -85,333 +83,33 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
   const headerFade = useRef(new Animated.Value(0)).current;
   const ctaFade = useRef(new Animated.Value(0)).current;
   const cardsFade = useRef(new Animated.Value(0)).current;
-  
+
   // 3D Carousel refs
   const carousel3DRef = useRef<ScrollView>(null);
-  const cardWidth = 140;
-  const cardSpacing = 4;
+  const cardWidth = 180;
+  const cardHeight = 320; // 9:16 aspect ratio
+  const cardSpacing = -30; // Negative spacing to show next image
   const scrollX = useRef(new Animated.Value(0)).current;
+
+  // Get original images array from Firebase Storage
+  console.log('Gallery images from Firebase:', settingsImages.gallery);
+  console.log('Gallery length:', settingsImages.gallery.length);
   
-  // Get original images array
-  const originalImages = settingsImages.gallery.length > 0 ? settingsImages.gallery : [
-    require('../../assets/images/gallery/1.jpg'),
-    require('../../assets/images/gallery/2.jpg'),
-    require('../../assets/images/gallery/3.jpg'),
-    require('../../assets/images/gallery/4.jpg'),
+  // Always show gallery with test data if no Firebase images
+  const testImages = [
+    'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400',
+    'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=400',
+    'https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400'
   ];
   
+  const originalImages = settingsImages.gallery.length > 0 ? settingsImages.gallery : testImages;
+
   // Create infinite scroll data by duplicating images
-  const infiniteImages = [...originalImages, ...originalImages, ...originalImages];
+  const infiniteImages = originalImages.length > 0 ? [...originalImages, ...originalImages, ...originalImages] : [];
   const originalLength = originalImages.length;
   const itemWidth = cardWidth + cardSpacing;
-  
-  // Handle infinite scroll
-  const handleScroll = (event: any) => {
-    const offsetX = event.nativeEvent.contentOffset.x;
-    const totalWidth = originalLength * itemWidth;
-    
-    // If scrolled past the end, reset to beginning + offset
-    if (offsetX >= totalWidth * 2) {
-      carousel3DRef.current?.scrollTo({
-        x: offsetX - totalWidth,
-        animated: false,
-      });
-    }
-    // If scrolled before the beginning, reset to end - offset
-    else if (offsetX <= 0) {
-      carousel3DRef.current?.scrollTo({
-        x: offsetX + totalWidth,
-        animated: false,
-      });
-    }
-  };
 
-  // Start at middle section for infinite scroll
-  useEffect(() => {
-    setTimeout(() => {
-      carousel3DRef.current?.scrollTo({
-        x: originalLength * itemWidth,
-        animated: false,
-      });
-    }, 100);
-  }, [originalLength, itemWidth]);
-
-  useEffect(() => {
-    // Simulate loading (splash) for 3 seconds
-    setTimeout(() => {
-      setLoading(false);
-    }, 3000);
-  }, []);
-
-  useEffect(() => {
-    if (!loading) {
-      // Start animations immediately (don't wait for image load)
-      Animated.sequence([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-        Animated.parallel([
-          Animated.timing(headerFade, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          Animated.timing(slideAnim, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.timing(ctaFade, {
-          toValue: 1,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-        Animated.timing(cardsFade, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [loading]);
-
-  useEffect(() => {
-    // Fetch images and dynamic content after interactions are complete
-    InteractionManager.runAfterInteractions(() => {
-      fetchImages();
-      fetchDynamicContent();
-    });
-  }, []);
-
-  // Fetch dynamic content from Firebase
-  const fetchDynamicContent = async () => {
-    try {
-      const db = getFirestore();
-      
-      // Load welcome messages
-      const welcomeDoc = await getDoc(doc(db, 'settings', 'homeMessages'));
-      if (welcomeDoc.exists()) {
-        const data = welcomeDoc.data();
-        setWelcomeMessage(data.welcome || t('home.welcome'));
-        setSubtitleMessage(data.subtitle || t('home.subtitle'));
-      } else {
-        setWelcomeMessage(t('home.welcome'));
-        setSubtitleMessage(t('home.subtitle'));
-      }
-
-      // Load about us text
-      const aboutDoc = await getDoc(doc(db, 'settings', 'aboutUsText'));
-      if (aboutDoc.exists()) {
-        const data = aboutDoc.data();
-        setAboutUsMessage(data.text || 'ברוכים הבאים למספרה של רון תורג׳מן! כאן תיהנו מחוויה אישית, מקצועית ומפנקת, עם יחס חם לכל לקוח. רון, בעל ניסיון של שנים בתחום, מזמין אתכם להתרווח, להתחדש ולהרגיש בבית.');
-      } else {
-        setAboutUsMessage('ברוכים הבאים למספרה של רון תורג׳מן! כאן תיהנו מחוויה אישית, מקצועית ומפנקת, עם יחס חם לכל לקוח. רון, בעל ניסיון של שנים בתחום, מזמין אתכם להתרווח, להתחדש ולהרגיש בבית.');
-      }
-
-      // Check for popup message
-      const popupDoc = await getDoc(doc(db, 'settings', 'popupMessage'));
-      if (popupDoc.exists()) {
-        const data = popupDoc.data();
-        if (data.isActive && data.message && data.expiresAt && data.expiresAt.toDate() > new Date()) {
-          setPopupMessage(data.message);
-          setShowPopup(true);
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to fetch dynamic content:', error);
-      // Fallback to translation values
-      setWelcomeMessage(t('home.welcome'));
-      setSubtitleMessage(t('home.subtitle'));
-      setAboutUsMessage('ברוכים הבאים למספרה של רון תורג׳מן! כאן תיהנו מחוויה אישית, מקצועית ומפנקת, עם יחס חם לכל לקוח. רון, בעל ניסיון של שנים בתחום, מזמין אתכם להתרווח, להתחדש ולהרגיש בבית.');
-    }
-  };
-
-  // Fetch images from Firebase gallery collection and settings
-  const fetchImages = async () => {
-      try {
-        const db = getFirestore();
-        
-        // Load gallery images from the gallery collection
-        const galleryQuery = query(collection(db, 'gallery'), where('isActive', '==', true));
-        const gallerySnapshot = await getDocs(galleryQuery);
-        const galleryImages: string[] = [];
-        
-        gallerySnapshot.forEach((doc) => {
-          const data = doc.data();
-          if (data.type === 'gallery' && data.imageUrl) {
-            galleryImages.push(data.imageUrl);
-          }
-        });
-        
-        // Sort by order if available
-        galleryImages.sort((a, b) => {
-          const docA = gallerySnapshot.docs.find(doc => doc.data().imageUrl === a);
-          const docB = gallerySnapshot.docs.find(doc => doc.data().imageUrl === b);
-          const orderA = docA?.data().order || 0;
-          const orderB = docB?.data().order || 0;
-          return orderA - orderB;
-        });
-        
-        // Load atmosphere and about us images from settings
-        let atmosphereImage = '';
-        let aboutUsImage = '';
-        
-        const settingsDocRef = doc(db, 'settings', 'images');
-        const settingsDocSnap = await getDoc(settingsDocRef);
-        if (settingsDocSnap.exists()) {
-          const settingsData = settingsDocSnap.data();
-          atmosphereImage = settingsData.atmosphereImage || '';
-          aboutUsImage = settingsData.aboutUsImage || '';
-          console.log('📁 Settings document contains:', {
-            atmosphereImage: atmosphereImage ? '✅ Found' : '❌ Not found',
-            aboutUsImage: aboutUsImage ? '✅ Found' : '❌ Not found',
-            allData: settingsData
-          });
-        } else {
-          console.log('📁 No settings/images document found');
-        }
-        
-        // Also check gallery collection for background/aboutus images
-        if (!atmosphereImage || !aboutUsImage) {
-          gallerySnapshot.forEach((doc) => {
-            const data = doc.data();
-            if (data.type === 'background' && data.imageUrl && !atmosphereImage) {
-              atmosphereImage = data.imageUrl;
-            }
-            if (data.type === 'aboutus' && data.imageUrl && !aboutUsImage) {
-              aboutUsImage = data.imageUrl;
-            }
-          });
-        }
-        
-        setSettingsImages({
-          atmosphere: atmosphereImage,
-          aboutUs: aboutUsImage,
-          gallery: galleryImages,
-        });
-        
-        console.log('✅ Loaded Firebase images:', {
-          atmosphere: atmosphereImage ? '✅ Found' : '❌ Not found',
-          aboutUs: aboutUsImage ? '✅ Found' : '❌ Not found', 
-          galleryCount: galleryImages.length,
-          galleryImages: galleryImages.slice(0, 2) // Show first 2 URLs
-        });
-
-        // Check if we have placeholder images
-        const hasPlaceholders = galleryImages.some(url => 
-          url && (url.includes('placeholder') || url.includes('via.placeholder'))
-        );
-        
-        if (hasPlaceholders) {
-          console.log('⚠️ Found placeholder images in gallery, they will appear as gray cards');
-          console.log('🔍 Placeholder URLs:', galleryImages.filter(url => 
-            url && (url.includes('placeholder') || url.includes('via.placeholder'))
-          ));
-        }
-
-        // If no gallery images found, initialize with default images
-        if (galleryImages.length === 0) {
-          console.log('🔍 No gallery images found. Checking all gallery collection documents...');
-          const allGallerySnapshot = await getDocs(collection(db, 'gallery'));
-          console.log('📋 All gallery collection documents:');
-          allGallerySnapshot.forEach((doc) => {
-            console.log('Document ID:', doc.id, 'Data:', doc.data());
-          });
-          
-          // Try to initialize gallery with default images
-          try {
-            console.log('🚀 Initializing gallery with default images...');
-            const { initializeGalleryImages } = await import('../../services/firebase');
-            await initializeGalleryImages();
-            
-            // Reload images after initialization
-            console.log('🔄 Reloading images after initialization...');
-            const refreshedGalleryQuery = query(collection(db, 'gallery'), where('isActive', '==', true));
-            const refreshedGallerySnapshot = await getDocs(refreshedGalleryQuery);
-            const refreshedGalleryImages: string[] = [];
-            
-            refreshedGallerySnapshot.forEach((doc) => {
-              const data = doc.data();
-              if (data.type === 'gallery' && data.imageUrl) {
-                refreshedGalleryImages.push(data.imageUrl);
-              }
-            });
-            
-            if (refreshedGalleryImages.length > 0) {
-              setSettingsImages(prev => ({
-                ...prev,
-                gallery: refreshedGalleryImages,
-              }));
-              console.log('✅ Gallery initialized with', refreshedGalleryImages.length, 'images');
-            }
-          } catch (initError) {
-            console.error('❌ Failed to initialize gallery:', initError);
-          }
-        } else if (hasPlaceholders) {
-          // If we have placeholder images, try to replace them automatically
-          try {
-            console.log('🔄 Auto-replacing placeholder images...');
-            const { replaceGalleryPlaceholders } = await import('../../services/firebase');
-            await replaceGalleryPlaceholders();
-            
-            // Reload images after replacement
-            console.log('🔄 Reloading images after replacement...');
-            const refreshedGalleryQuery = query(collection(db, 'gallery'), where('isActive', '==', true));
-            const refreshedGallerySnapshot = await getDocs(refreshedGalleryQuery);
-            const refreshedGalleryImages: string[] = [];
-            
-            refreshedGallerySnapshot.forEach((doc) => {
-              const data = doc.data();
-              if (data.type === 'gallery' && data.imageUrl) {
-                refreshedGalleryImages.push(data.imageUrl);
-              }
-            });
-            
-            if (refreshedGalleryImages.length > 0) {
-              setSettingsImages(prev => ({
-                ...prev,
-                gallery: refreshedGalleryImages,
-              }));
-              console.log('✅ Gallery placeholders replaced with', refreshedGalleryImages.length, 'real images');
-            }
-          } catch (replaceError) {
-            console.error('❌ Failed to replace placeholders:', replaceError);
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to fetch Firebase images:', err);
-      }
-    };
-
-  // Remove auto-scroll for manual control
-  // useEffect(() => {
-  //   const galleryImages = [
-  //     require('../../assets/images/gallery/1.jpg'),
-  //     require('../../assets/images/gallery/2.jpg'),
-  //     require('../../assets/images/gallery/3.jpg'),
-  //     require('../../assets/images/gallery/4.jpg'),
-  //   ];
-
-  //   const interval = setInterval(() => {
-  //     setGalleryIndex((prevIndex) => {
-  //       const nextIndex = (prevIndex + 1) % galleryImages.length;
-  //       if (carousel3DRef.current) {
-  //         carousel3DRef.current.scrollTo({
-  //           x: nextIndex * (cardWidth + cardSpacing),
-  //           animated: true,
-  //         });
-  //       }
-  //       return nextIndex;
-  //     });
-  //   }, 4000); // Change every 4 seconds
-
-  //   return () => clearInterval(interval);
-  // }, []);
-
-  // Calculate 3D transform for each card
+  // 3D Transform function for carousel cards
   const getCardTransform = (index: number, scrollXValue: Animated.Value) => {
     const cardOffset = index * (cardWidth + cardSpacing);
     const inputRange = [
@@ -455,144 +153,230 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
     };
   };
 
-  const handlePhoneCall = () => {
-    Linking.openURL('tel:+972542280222').catch(() => {
-      Alert.alert(t('common.error'), t('errors.phone_error'));
-    });
-  };
-
-  const handleWhatsApp = () => {
-    Linking.openURL('https://wa.me/972542280222').catch(() => {
-      Alert.alert(t('common.error'), t('errors.whatsapp_error'));
-    });
-  };
-
-  const handleWaze = () => {
-    Linking.openURL('https://waze.com/ul?ll=32.0853,34.7818&navigate=yes').catch(() => {
-      Alert.alert(t('common.error'), t('errors.waze_error'));
-    });
-  };
-
-  const handleSocialMedia = (platform: string) => {
-    let url = '';
-    switch (platform) {
-      case 'facebook':
-        url = 'https://www.facebook.com/turgibarber';
-        break;
-      case 'instagram':
-        url = 'https://www.instagram.com/turgibarber';
-        break;
-      default:
-        return;
+  // Handle infinite scroll
+  const handleScroll = (event: any) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const totalWidth = originalLength * itemWidth;
+    if (offsetX >= totalWidth * 2) {
+      carousel3DRef.current?.scrollTo({
+        x: offsetX - totalWidth,
+        animated: false,
+      });
+    } else if (offsetX <= 0) {
+      carousel3DRef.current?.scrollTo({
+        x: offsetX + totalWidth,
+        animated: false,
+      });
     }
-    
-    Linking.openURL(url).catch(() => {
-      Alert.alert(t('common.error'), t('errors.link_error'));
+  };
+
+  useEffect(() => {
+    setTimeout(() => {
+      carousel3DRef.current?.scrollTo({
+        x: originalLength * itemWidth,
+        animated: false,
+      });
+    }, 100);
+  }, [originalLength, itemWidth]);
+
+  useEffect(() => {
+    setTimeout(() => {
+      setLoading(false);
+    }, 1500);
+  }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      Animated.sequence([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.parallel([
+          Animated.timing(headerFade, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(slideAnim, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.timing(ctaFade, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(cardsFade, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [loading]);
+
+  useEffect(() => {
+    InteractionManager.runAfterInteractions(() => {
+      fetchImages();
     });
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsAuthenticated(!!user);
+    });
+    return unsubscribe;
+  }, []);
+
+  // Fetch images from Firebase gallery collection and settings
+  const fetchImages = async () => {
+    try {
+      const db = getFirestore();
+      const galleryQuery = query(collection(db, 'gallery'), where('isActive', '==', true));
+      const gallerySnapshot = await getDocs(galleryQuery);
+      const galleryImages: string[] = [];
+      gallerySnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.type === 'gallery' && data.imageUrl) {
+          galleryImages.push(data.imageUrl);
+        }
+      });
+      galleryImages.sort((a, b) => {
+        const docA = gallerySnapshot.docs.find(doc => doc.data().imageUrl === a);
+        const docB = gallerySnapshot.docs.find(doc => doc.data().imageUrl === b);
+        const orderA = docA?.data().order || 0;
+        const orderB = docB?.data().order || 0;
+        return orderA - orderB;
+      });
+      
+      // Get images from settings
+      let atmosphereImage = '';
+      let aboutUsImage = '';
+      let aboutUsBottomImage = '';
+      const settingsDocRef = doc(db, 'settings', 'images');
+      const settingsDocSnap = await getDoc(settingsDocRef);
+      if (settingsDocSnap.exists()) {
+        const settingsData = settingsDocSnap.data();
+        atmosphereImage = settingsData.atmosphereImage || '';
+        aboutUsImage = settingsData.aboutUsImage || '';
+        aboutUsBottomImage = settingsData.aboutUsBottomImage || '';
+      }
+      
+      // If no aboutUsBottomImage in settings, try to get from Storage path
+      if (!aboutUsBottomImage) {
+        // You would typically get this from Firebase Storage directly
+        // For now, we'll check if there's an aboutus folder image
+        const aboutUsQuery = query(collection(db, 'gallery'), 
+          where('path', '==', 'aboutus/ABOUTUS'),
+          where('isActive', '==', true)
+        );
+        const aboutUsSnapshot = await getDocs(aboutUsQuery);
+        if (!aboutUsSnapshot.empty) {
+          aboutUsBottomImage = aboutUsSnapshot.docs[0].data().imageUrl || '';
+        }
+      }
+      
+      setSettingsImages({
+        atmosphere: atmosphereImage,
+        aboutUs: aboutUsImage,
+        gallery: galleryImages,
+        aboutUsBottom: aboutUsBottomImage,
+      });
+    } catch (err) {
+      console.error('Error fetching images:', err);
+      // fallback to empty
+      setSettingsImages({
+        atmosphere: '',
+        aboutUs: '',
+        gallery: [],
+        aboutUsBottom: '',
+      });
+    }
+  };
+
+  const handleBookingPress = () => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        'התחברות נדרשת',
+        'עליך להתחבר או להירשם כדי לקבוע תור',
+        [
+          { text: 'ביטול', style: 'cancel' },
+          { text: 'התחבר', onPress: () => onNavigate('auth') }
+        ]
+      );
+      return;
+    }
+    onNavigate('booking');
+  };
+
+  const handleGalleryPress = () => {
+    onNavigate('gallery');
+  };
+
+  const handleTeamPress = () => {
+    onNavigate('team');
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>{t('common.loading')}</Text>
-        </View>
-      </SafeAreaView>
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>טוען...</Text>
+      </View>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <TopNav 
-        title="ron turgeman"
-        onBellPress={() => setNotificationPanelVisible(true)} 
-        onMenuPress={() => setSideMenuVisible(true)} 
-      />
-      <View style={styles.backgroundWrapper}>
-        <ImageBackground
-          source={settingsImages.atmosphere ? { uri: settingsImages.atmosphere } : require('../../assets/images/atmosphere/atmosphere.png')}
-          style={styles.atmosphereImage}
-          resizeMode="cover"
-        >
-          <View style={styles.overlay} />
-          <View style={styles.designElements}>
-            <View style={styles.circle1} />
-            <View style={styles.circle2} />
-            <View style={styles.line1} />
-            <View style={styles.line2} />
-          </View>
-        </ImageBackground>
-      </View>
+      <TopNav title="Barbers Bar" onMenuPress={() => setSideMenuVisible(true)} />
       
-      <ScrollView 
-        style={styles.scrollView} 
-        showsVerticalScrollIndicator={false} 
-        contentContainerStyle={styles.scrollContent}
-      >
-        <View style={styles.contentWrapper}>
-          {/* Greeting and CTA Section */}
-          <Animated.View 
-            style={[
-              styles.greetingCtaContainer, 
-              { 
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }]
-              }
-            ]}
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Hero Section */}
+        <View style={styles.backgroundWrapper}>
+          <ImageBackground
+            source={settingsImages.atmosphere ? { uri: settingsImages.atmosphere } : require('../../assets/images/ATMOSPHERE.jpg')}
+            style={styles.atmosphereImage}
+            resizeMode="cover"
           >
             <LinearGradient
-              colors={['rgba(59, 130, 246, 0.1)', 'rgba(59, 130, 246, 0.05)', 'rgba(3, 3, 3, 0.95)']}
+              colors={['transparent', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.7)']}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.cardGradient}
+              end={{ x: 0, y: 1 }}
+              style={styles.heroGradient}
             />
-            <NeonButton
-              title={t('home.book_appointment')}
-              onPress={() => onNavigate('booking')}
-              variant="primary"
-              style={styles.ctaButton}
-            />
-            <View style={styles.greetingContainer}>
-              <Text style={styles.greeting}>{welcomeMessage || t('home.welcome')}</Text>
-              <Text style={styles.subtitle}>{subtitleMessage || t('home.subtitle')}</Text>
-            </View>
-          </Animated.View>
+          </ImageBackground>
+        </View>
 
-          {/* Quick Actions */}
-          <Animated.View style={[styles.quickActionsSection, { opacity: ctaFade }]}>
-            <Text style={styles.sectionTitle}>{t('home.quick_actions')}</Text>
-            <View style={styles.quickActionsGrid}>
-              <TouchableOpacity 
-                style={styles.quickActionCard}
-                onPress={() => onNavigate('booking')}
-              >
-                <Ionicons name="calendar" size={32} color="#007bff" />
-                <Text style={styles.quickActionTitle}>{t('home.book_new')}</Text>
-                <Text style={styles.quickActionSubtitle}>{t('home.book_subtitle')}</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.quickActionCard}
-                onPress={() => onNavigate('profile')}
-              >
-                <Ionicons name="list" size={32} color="#007bff" />
-                <Text style={styles.quickActionTitle}>{t('home.my_appointments')}</Text>
-                <Text style={styles.quickActionSubtitle}>{t('home.appointments_subtitle')}</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.quickActionCard}
-                onPress={() => onNavigate('team')}
-              >
-                <Ionicons name="people" size={32} color="#007bff" />
-                <Text style={styles.quickActionTitle}>{t('home.our_team')}</Text>
-                <Text style={styles.quickActionSubtitle}>{t('home.team_subtitle')}</Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
+        {/* Greeting and CTA Section */}
+        <Animated.View 
+          style={[
+            styles.greetingCtaContainer, 
+            { 
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }]
+            }
+          ]}
+        >
+          <LinearGradient
+            colors={['rgba(59, 130, 246, 0.1)', 'rgba(59, 130, 246, 0.05)', 'rgba(3, 3, 3, 0.95)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.cardGradient}
+          />
+          <View style={styles.greetingContainer}>
+            <Text style={styles.greeting}>{welcomeMessage || t('home.welcome')}</Text>
+            <Text style={styles.subtitle}>{subtitleMessage || t('home.subtitle')}</Text>
+          </View>
+          <NeonButton
+            title={t('home.book_appointment')}
+            onPress={() => onNavigate('booking')}
+            variant="primary"
+            style={styles.ctaButton}
+          />
+        </Animated.View>
 
-          {/* 3D Gallery Carousel Section */}
-          <Animated.View style={[styles.gallerySection, { opacity: cardsFade }]}>
+        {/* 3D Gallery Carousel Section */}
+        <Animated.View style={[styles.gallerySection, { opacity: cardsFade }]}>
             <Text style={styles.sectionTitle}>{t('home.gallery')}</Text>
             <View style={styles.carousel3DContainer}>
               <Animated.ScrollView 
@@ -610,14 +394,14 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
               >
                 {infiniteImages.map((img, index) => (
                   <Animated.View 
-                    key={index} 
+                    key={`gallery-${index}`} 
                     style={[
                       styles.carousel3DCard,
                       getCardTransform(index, scrollX),
                     ]}
                   >
                     <Image
-                      source={typeof img === 'string' ? { uri: img } : img}
+                      source={{ uri: img }}
                       style={styles.carousel3DImage}
                       resizeMode="cover"
                     />
@@ -631,120 +415,129 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
                 ))}
               </Animated.ScrollView>
             </View>
-          </Animated.View>
+        </Animated.View>
 
+        {/* Content */}
+        <View style={styles.contentWrapper}>
           {/* About Us Section */}
-          <Animated.View style={[styles.aboutSection, { opacity: cardsFade }]}>
-            <Text style={styles.sectionTitle}>{t('home.about')}</Text>
-            <View style={styles.aboutCard}>
+          <Animated.View style={[styles.aboutUsSection, { opacity: cardsFade }]}>
+            <Text style={styles.sectionTitle}>הכירו אותנו</Text>
+            <View style={styles.aboutUsCard}>
+              <LinearGradient
+                colors={['rgba(59, 130, 246, 0.1)', 'rgba(139, 69, 19, 0.1)', 'rgba(0, 0, 0, 0.05)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.aboutUsGradient}
+              />
               <Image
-                source={settingsImages.aboutUs ? { uri: settingsImages.aboutUs } : require('../../assets/images/ABOUT US/aboutus.png')}
-                style={styles.aboutImageWide}
+                source={settingsImages.aboutUs ? { uri: settingsImages.aboutUs } : require('../../assets/images/ATMOSPHERE.jpg')}
+                style={styles.aboutUsTopImage}
                 resizeMode="cover"
               />
-              <View style={styles.aboutContent}>
-                <Text style={styles.aboutText}>
-                  {aboutUsMessage || `ברוכים הבאים למספרה של רון תורג׳מן! כאן תיהנו מחוויה אישית, מקצועית ומפנקת, עם יחס חם לכל לקוח. רון, בעל ניסיון של שנים בתחום, מזמין אתכם להתרווח, להתחדש ולהרגיש בבית. 
-                  
-✂️ AI: "המספרה שלנו היא לא רק מקום להסתפר, אלא מקום להרגיש בו טוב, להירגע ולצאת עם חיוך. כל תספורת היא יצירת אמנות!"`}
+              <View style={styles.aboutUsContent}>
+                <Text style={styles.aboutUsText}>
+                  {aboutUsMessage}
                 </Text>
-                <TouchableOpacity 
-                  style={styles.wazeButton} 
-                  onPress={handleWaze}
-                >
-                  <Text style={styles.wazeButtonText}>{t('home.navigate_waze')}</Text>
-                </TouchableOpacity>
+                {settingsImages.aboutUsBottom && (
+                  <Image
+                    source={{ uri: settingsImages.aboutUsBottom }}
+                    style={styles.aboutUsBottomImage}
+                    resizeMode="cover"
+                  />
+                )}
               </View>
+            </View>
+          </Animated.View>
+
+          {/* Social Media Links */}
+          <Animated.View style={[styles.socialSection, { opacity: cardsFade }]}>
+            <Text style={styles.sectionTitle}>עקבו אחרינו</Text>
+            <View style={styles.socialContainer}>
+              <TouchableOpacity style={styles.socialButton}>
+                <Ionicons name="logo-instagram" size={28} color="#E4405F" />
+                <Text style={styles.socialText}>Instagram</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.socialButton}>
+                <Ionicons name="logo-facebook" size={28} color="#1877F2" />
+                <Text style={styles.socialText}>Facebook</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.socialButton}>
+                <Ionicons name="logo-whatsapp" size={28} color="#25D366" />
+                <Text style={styles.socialText}>WhatsApp</Text>
+              </TouchableOpacity>
             </View>
           </Animated.View>
 
           {/* Contact Section */}
           <Animated.View style={[styles.contactSection, { opacity: cardsFade }]}>
-            <Text style={styles.sectionTitle}>{t('home.contact')}</Text>
-            <View style={styles.contactGrid}>
-              <TouchableOpacity style={styles.contactCard} onPress={handlePhoneCall}>
-                <Ionicons name="call" size={32} color="#007bff" />
-                <Text style={styles.contactTitle}>{t('home.call_us')}</Text>
-                <Text style={styles.contactSubtitle}>{t('home.phone')}</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.contactCard} onPress={handleWhatsApp}>
-                <Ionicons name="logo-whatsapp" size={32} color="#25d366" />
-                <Text style={styles.contactTitle}>{t('home.whatsapp')}</Text>
-                <Text style={styles.contactSubtitle}>{t('home.send_message')}</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.socialRow}>
-              <TouchableOpacity onPress={() => handleSocialMedia('facebook')} style={styles.socialButton}>
-                <Ionicons name="logo-facebook" size={28} color="#1877f2" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleSocialMedia('instagram')} style={styles.socialButton}>
-                <Ionicons name="logo-instagram" size={28} color="#e4405f" />
-              </TouchableOpacity>
+            <Text style={styles.sectionTitle}>צור קשר</Text>
+            <View style={styles.contactInfo}>
+              <LinearGradient
+                colors={['rgba(59, 130, 246, 0.05)', 'rgba(255, 255, 255, 0.95)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.contactGradient}
+              />
+              <View style={styles.contactItem}>
+                <Ionicons name="call" size={20} color="#3b82f6" />
+                <Text style={styles.contactText}>050-1234567</Text>
+              </View>
+              <View style={styles.contactItem}>
+                <Ionicons name="location" size={20} color="#3b82f6" />
+                <Text style={styles.contactText}>רחוב הראשי 123, תל אביב</Text>
+              </View>
+              <View style={styles.contactItem}>
+                <Ionicons name="time" size={20} color="#3b82f6" />
+                <Text style={styles.contactText}>א'-ה' 9:00-20:00, ו' 9:00-15:00</Text>
+              </View>
             </View>
           </Animated.View>
 
-          {/* Footer */}
-          <View style={styles.footerCard}>
-            <Text style={styles.footerText}>מושב יושיביה 1</Text>
-            <TouchableOpacity onPress={handleWaze}>
-              <Text style={styles.footerWaze}>{t('home.navigate_waze')}</Text>
-            </TouchableOpacity>
-            <Text style={styles.footerCredit}>{t('home.powered_by')}</Text>
-            <TouchableOpacity onPress={() => setShowTerms(true)}>
-              <Text style={styles.footerTerms}>{t('home.terms')}</Text>
+          {/* Terms of Service */}
+          <View style={styles.termsSection}>
+            <TouchableOpacity onPress={() => setShowTerms(true)} style={styles.termsButton}>
+              <Text style={styles.termsText}>תנאי שימוש</Text>
             </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
-      
-      <SideMenu 
+
+      <SideMenu
         visible={sideMenuVisible}
         onClose={() => setSideMenuVisible(false)}
-        onNavigate={(screen) => {
-          console.log('HomeScreen onNavigate called with:', screen);
-          onNavigate(screen);
-        }}
-        onNotificationPress={() => setNotificationPanelVisible(true)}
+        onNavigate={onNavigate}
       />
       
-      <NotificationPanel 
-        visible={notificationPanelVisible}
-        onClose={() => setNotificationPanelVisible(false)}
-      />
-      <TermsModal visible={showTerms} onClose={() => setShowTerms(false)} />
-      
-      {/* Admin Popup Message */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={showPopup}
-        onRequestClose={() => setShowPopup(false)}
-      >
-        <View style={styles.popupOverlay}>
-          <View style={styles.popupContent}>
-            <View style={styles.popupHeader}>
-              <Text style={styles.popupTitle}>הודעה מהמספרה</Text>
-              <TouchableOpacity onPress={() => setShowPopup(false)}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.popupMessage}>{popupMessage}</Text>
+      {/* Terms Modal */}
+      {showTerms && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>תנאי שימוש</Text>
+            <ScrollView style={styles.modalScrollView}>
+              <Text style={styles.modalText}>
+                ברוכים הבאים ל-Barbers Bar. השימוש באפליקציה כפוף לתנאים הבאים:{'\n\n'}
+                
+                1. השירות מיועד לקביעת תורים והכרת הצוות והשירותים{'\n'}
+                2. יש לספק מידע מדויק בעת קביעת התור{'\n'}
+                3. ביטול תור יש לבצע לפחות 24 שעות מראש{'\n'}
+                4. המספרה שומרת את הזכות לשנות את התנאים{'\n'}
+                5. המידע האישי מוגן ולא יועבר לצדדים שלישיים{'\n\n'}
+                
+                לפרטים נוספים ניתן לפנות למספרה ישירות.
+              </Text>
+            </ScrollView>
             <TouchableOpacity 
-              style={styles.popupButton} 
-              onPress={() => setShowPopup(false)}
+              style={styles.modalCloseButton} 
+              onPress={() => setShowTerms(false)}
             >
-              <Text style={styles.popupButtonText}>הבנתי</Text>
+              <Text style={styles.modalCloseText}>סגור</Text>
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      )}
     </SafeAreaView>
   );
-};
-
-export default HomeScreen;
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -759,97 +552,48 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 18,
-    color: '#333',
-    fontWeight: '500',
+    color: '#666',
   },
   scrollView: {
     flex: 1,
   },
-  scrollContent: {
-    paddingBottom: 32,
-  },
   backgroundWrapper: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 0,
-    height: height * 0.4,
-    width: '100%',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    height: height * 0.55,
+    position: 'relative',
     overflow: 'hidden',
   },
   atmosphereImage: {
     width: '100%',
     height: '100%',
-    justifyContent: 'flex-end',
-    marginTop: 90, // move image down so overlay covers less
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    overflow: 'hidden',
   },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  designElements: {
+  heroGradient: {
     position: 'absolute',
-    top: 0,
+    bottom: 0,
     left: 0,
     right: 0,
-    bottom: 0,
+    height: '100%',
     zIndex: 1,
   },
-  circle1: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    top: -50,
-    left: -50,
-  },
-  circle2: {
-    position: 'absolute',
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    bottom: 100,
-    right: -50,
-  },
-  line1: {
-    position: 'absolute',
-    width: '100%',
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    bottom: 0,
-    left: 0,
-  },
-  line2: {
-    position: 'absolute',
-    width: '100%',
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    top: 0,
-    left: 0,
-  },
-  contentWrapper: {
-    paddingTop: height * 0.35 + 90,
-  },
   greetingCtaContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 32, // היה 20
-    marginHorizontal: 8, // היה 16
-    marginBottom: 24,
+    position: 'absolute',
+    top: height * 0.42,
+    left: 30,
+    right: 30,
+    zIndex: 10,
     borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
     overflow: 'hidden',
+    minHeight: 140,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 15,
   },
   cardGradient: {
     position: 'absolute',
@@ -857,133 +601,115 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: 20,
-  },
-  greetingContainer: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  greeting: {
-    fontSize: 18, // היה 24
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
-    textAlign: 'right',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#fff',
-    textAlign: 'right',
   },
   ctaButton: {
-    minWidth: 100,
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    zIndex: 2,
+  },
+  greetingContainer: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    left: 140,
+    zIndex: 2,
+  },
+  greeting: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    textAlign: 'right',
+    marginBottom: 6,
+    textShadowColor: 'rgba(0, 0, 0, 0.7)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#e0e0e0',
+    textAlign: 'right',
+    fontWeight: '400',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  contentWrapper: {
+    paddingTop: 220,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
   },
   neonButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#3b82f6',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 10,
+    borderWidth: 2,
   },
   neonButtonPrimary: {
-    backgroundColor: '#000',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    backgroundColor: '#3b82f6',
+    borderColor: '#60a5fa',
+    shadowColor: '#3b82f6',
   },
   neonButtonSecondary: {
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#000',
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderColor: '#3b82f6',
+    shadowColor: '#3b82f6',
   },
   neonButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '600',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   neonButtonTextPrimary: {
-    color: '#fff',
+    color: '#ffffff',
   },
   neonButtonTextSecondary: {
-    color: '#000',
+    color: '#3b82f6',
   },
-  quickActionsSection: {
-    marginBottom: 24,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    marginHorizontal: 16,
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  quickActionsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  quickActionCard: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 4,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  quickActionTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#222',
-    marginBottom: 4,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  quickActionSubtitle: {
-    fontSize: 12,
-    color: '#666',
+  sectionTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginBottom: 16,
     textAlign: 'center',
   },
   gallerySection: {
-    marginBottom: 24,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    marginHorizontal: 16,
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  galleryCarouselContent: {
-    paddingHorizontal: 4,
+    marginBottom: 20,
+    paddingVertical: 15,
   },
   carousel3DContainer: {
-    height: 240,
-    justifyContent: 'center',
-    alignItems: 'center',
+    height: 340,
+    overflow: 'hidden',
   },
   carousel3DContent: {
-    paddingHorizontal: 15,
+    paddingHorizontal: 50,
+    alignItems: 'center',
   },
   carousel3DCard: {
-    width: 140,
-    height: 200,
-    borderRadius: 18,
-    marginRight: 4,
-    backgroundColor: '#eee',
+    width: 180,
+    height: 320,
+    marginHorizontal: 5,
+    borderRadius: 20,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 15 },
-    shadowOpacity: 0.4,
-    shadowRadius: 18,
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
     elevation: 15,
   },
   carousel3DImage: {
@@ -995,249 +721,193 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 80,
+    height: '50%',
   },
   carousel3DGradient: {
     flex: 1,
-    borderBottomLeftRadius: 18,
-    borderBottomRightRadius: 18,
   },
-  // Legacy styles (can be removed if not used elsewhere)
-  galleryCard: {
-    width: 180,
-    height: 240,
-    borderRadius: 24,
-    marginRight: 20,
-    backgroundColor: '#eee',
+  aboutUsSection: {
+    marginBottom: 30,
+    paddingVertical: 5,
+  },
+  aboutUsCard: {
+    borderRadius: 20,
     overflow: 'hidden',
+    backgroundColor: '#ffffff',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 12,
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
   },
-  galleryImage: {
-    width: '100%',
-    height: '100%',
-  },
-  galleryOverlay: {
+  aboutUsGradient: {
     position: 'absolute',
-    bottom: 0,
+    top: 0,
     left: 0,
     right: 0,
-    height: 60,
+    bottom: 0,
   },
-  galleryGradient: {
-    flex: 1,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#222',
-    marginBottom: 16,
-    textAlign: 'right',
-  },
-  aboutSection: {
-    marginBottom: 24,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    marginHorizontal: 16,
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  aboutCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    alignItems: 'center',
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  aboutImageWide: {
+  aboutUsTopImage: {
     width: '100%',
     height: 200,
-    borderRadius: 12,
-    marginBottom: 20,
   },
-  aboutContent: {
-    flex: 1,
-    alignItems: 'center',
+  aboutUsContent: {
+    padding: 24,
   },
-  aboutText: {
-    fontSize: 17,
-    color: '#555',
-    marginBottom: 20,
-    textAlign: 'center',
-    lineHeight: 26,
+  aboutUsText: {
+    fontSize: 16,
+    color: '#333333',
+    lineHeight: 24,
+    textAlign: 'right',
+    fontWeight: '400',
   },
-  wazeButton: {
-    backgroundColor: '#50C878',
-    paddingHorizontal: 20,
+  socialSection: {
+    marginBottom: 30,
     paddingVertical: 10,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  wazeButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  contactSection: {
-    marginBottom: 24,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    marginHorizontal: 16,
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  contactGrid: {
+  socialContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  contactCard: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 4,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  contactTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#222',
-    marginBottom: 4,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  contactSubtitle: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-  },
-  socialRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 20,
+    justifyContent: 'space-around',
+    paddingHorizontal: 20,
   },
   socialButton: {
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    minWidth: 100,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  footerCard: {
-    backgroundColor: 'rgba(240,240,240,0.95)',
-    marginHorizontal: 16,
+  socialText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#333333',
+    marginTop: 6,
+  },
+  contactSection: {
+    marginBottom: 40,
+    paddingVertical: 10,
+  },
+  contactInfo: {
+    backgroundColor: '#ffffff',
     borderRadius: 20,
     padding: 24,
-    alignItems: 'center',
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-    marginBottom: 24,
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
   },
-  footerText: {
-    fontSize: 14,
-    color: '#555',
-    marginBottom: 8,
-    textAlign: 'center',
+  contactGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
-  footerWaze: {
-    fontSize: 14,
-    color: '#007bff',
-    textDecorationLine: 'underline',
-    marginBottom: 8,
+  contactItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingVertical: 4,
   },
-  footerCredit: {
-    fontSize: 12,
-    color: '#888',
+  contactText: {
+    fontSize: 16,
+    color: '#1a1a1a',
+    marginLeft: 12,
+    fontWeight: '500',
+  },
+  aboutUsBottomImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 15,
     marginTop: 16,
   },
-  footerTerms: {
-    fontSize: 12,
-    color: '#007bff',
-    textDecorationLine: 'underline',
-    marginTop: 4,
+  termsSection: {
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingVertical: 10,
   },
-  popupOverlay: {
-    flex: 1,
+  termsButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  termsText: {
+    fontSize: 14,
+    color: '#666666',
+    textDecorationLine: 'underline',
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    zIndex: 1000,
   },
-  popupContent: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
     padding: 24,
-    width: '100%',
-    maxWidth: 400,
+    margin: 20,
+    maxHeight: '80%',
+    width: '90%',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
     shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowRadius: 20,
+    elevation: 20,
   },
-  popupHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    textAlign: 'center',
+    marginBottom: 20,
   },
-  popupTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#222',
-    textAlign: 'right',
+  modalScrollView: {
+    maxHeight: 300,
+    marginBottom: 20,
   },
-  popupMessage: {
+  modalText: {
     fontSize: 16,
-    color: '#444',
+    color: '#333333',
     lineHeight: 24,
     textAlign: 'right',
-    marginBottom: 24,
   },
-  popupButton: {
-    backgroundColor: '#007bff',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+  modalCloseButton: {
+    backgroundColor: '#3b82f6',
     borderRadius: 12,
+    paddingVertical: 14,
     alignItems: 'center',
   },
-  popupButtonText: {
-    color: '#fff',
+  modalCloseText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
+    color: '#ffffff',
   },
 });
+
+export default HomeScreen;

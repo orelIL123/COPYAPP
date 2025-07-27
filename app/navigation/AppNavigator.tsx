@@ -1,106 +1,163 @@
-import React, { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { onAuthStateChanged } from 'firebase/auth';
+import { useEffect, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { auth } from '../config/firebase';
 import AdminAppointmentsScreen from '../screens/AdminAppointmentsScreen';
 import AdminAvailabilityScreen from '../screens/AdminAvailabilityScreen';
 import AdminGalleryScreen from '../screens/AdminGalleryScreen';
 import AdminHomeScreen from '../screens/AdminHomeScreen';
+import AdminNotificationsScreen from '../screens/AdminNotificationsScreen';
 import AdminSettingsScreen from '../screens/AdminSettingsScreen';
+import AdminStatisticsScreen from '../screens/AdminStatisticsScreen';
 import AdminTeamScreen from '../screens/AdminTeamScreen';
 import AdminTreatmentsScreen from '../screens/AdminTreatmentsScreen';
+import AuthChoiceScreen from '../screens/AuthChoiceScreen';
+import AuthPhoneScreen from '../screens/AuthPhoneScreen';
 import BookingScreen from '../screens/BookingScreen';
 import HomeScreen from '../screens/HomeScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import SplashScreen from '../screens/SplashScreen';
 import TeamScreen from '../screens/TeamScreen';
+import TermsScreen from '../screens/TermsScreen';
 
-export type Screen = 'home' | 'profile' | 'team' | 'booking' | 'settings' | 'admin-home' | 'admin-appointments' | 'admin-treatments' | 'admin-team' | 'admin-gallery' | 'admin-availability' | 'admin-settings';
+type Screen = 
+  | 'splash'
+  | 'auth'
+  | 'login'
+  | 'register'
+  | 'home'
+  | 'booking'
+  | 'team'
+  | 'profile'
+  | 'settings'
+  | 'notifications'
+  | 'terms'
+  | 'admin-home'
+  | 'admin-appointments'
+  | 'admin-team'
+  | 'admin-treatments'
+  | 'admin-gallery'
+  | 'admin-availability'
+  | 'admin-settings'
+  | 'admin-statistics'
+  | 'admin-notifications';
 
-export const AppNavigator: React.FC = () => {
-  const [currentScreen, setCurrentScreen] = useState<Screen>('home');
-  const [navigationParams, setNavigationParams] = useState<any>({});
+export default function AppNavigator() {
+  const [currentScreen, setCurrentScreen] = useState<Screen>('splash');
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleNavigate = (screen: Screen, params?: any) => {
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setLoading(false);
+      
+      if (user) {
+        // Check if user is admin
+        if (user.email === 'orel895@gmail.com') {
+          setCurrentScreen('admin-home');
+        } else {
+          setCurrentScreen('home');
+        }
+      } else {
+        // Guest mode - go directly to home
+        setCurrentScreen('home');
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const navigate = (screen: Screen) => {
     setCurrentScreen(screen);
-    setNavigationParams(params || {});
   };
 
-  const renderScreen = () => {
-    switch (currentScreen) {
-      case 'home':
-        return <HomeScreen onNavigate={handleNavigate} />;
-      case 'profile':
-        return <ProfileScreen 
-          onNavigate={handleNavigate}
-          onBack={() => handleNavigate('home')}
-        />;
-      case 'team':
-        return <TeamScreen 
-          onNavigate={handleNavigate}
-          onBack={() => handleNavigate('home')}
-        />;
-      case 'booking':
-        return <BookingScreen 
-          onNavigate={handleNavigate} 
-          route={{ params: navigationParams }}
-          onBack={() => handleNavigate('home')}
-          onClose={() => handleNavigate('home')}
-        />;
-      case 'settings':
-        return <SettingsScreen 
-          onNavigate={handleNavigate}
-          onBack={() => handleNavigate('home')}
-        />;
-      case 'admin-home':
-        return <AdminHomeScreen 
-          onNavigate={handleNavigate}
-          onBack={() => handleNavigate('home')}
-        />;
-      case 'admin-appointments':
-        return <AdminAppointmentsScreen 
-          onNavigate={handleNavigate}
-          onBack={() => handleNavigate('admin-home')}
-        />;
-      case 'admin-treatments':
-        return <AdminTreatmentsScreen 
-          onNavigate={handleNavigate}
-          onBack={() => handleNavigate('admin-home')}
-        />;
-      case 'admin-team':
-        return <AdminTeamScreen 
-          onNavigate={handleNavigate}
-          onBack={() => handleNavigate('admin-home')}
-        />;
-      case 'admin-gallery':
-        return <AdminGalleryScreen 
-          onNavigate={handleNavigate}
-          onBack={() => handleNavigate('admin-home')}
-        />;
-      case 'admin-availability':
-        return <AdminAvailabilityScreen 
-          onNavigate={handleNavigate}
-          onBack={() => handleNavigate('admin-home')}
-        />;
-      case 'admin-settings':
-        return <AdminSettingsScreen 
-          onNavigate={handleNavigate}
-          onBack={() => handleNavigate('admin-home')}
-        />;
-      default:
-        return <HomeScreen onNavigate={handleNavigate} />;
-    }
-  };
+  if (loading) {
+    return <SplashScreen />;
+  }
 
-  return (
-    <View style={styles.container}>
-      {renderScreen()}
-    </View>
-  );
-};
+  switch (currentScreen) {
+    case 'splash':
+      return <SplashScreen />;
+    
+    case 'auth':
+      return <AuthChoiceScreen />;
+    
+    case 'login':
+      return <AuthPhoneScreen />;
+    
+    case 'register':
+      return <AuthPhoneScreen />;
+    
+    case 'home':
+      return <HomeScreen onNavigate={navigate} />;
+    
+    case 'booking':
+      return <BookingScreen onNavigate={navigate} />;
+    
+    case 'team':
+      return <TeamScreen onNavigate={navigate} />;
+    
+    case 'profile':
+      return <ProfileScreen onNavigate={navigate} />;
+    
+    case 'settings':
+      return <SettingsScreen onNavigate={navigate} />;
+    
+    case 'notifications':
+      return <NotificationsScreen onNavigate={navigate} />;
+    
+    case 'terms':
+      return <TermsScreen onNavigate={navigate} />;
+    
+    // Admin screens
+    case 'admin-home':
+      return <AdminHomeScreen onNavigate={navigate} />;
+    
+    case 'admin-appointments':
+      return <AdminAppointmentsScreen onNavigate={navigate} />;
+    
+    case 'admin-team':
+      return <AdminTeamScreen onNavigate={navigate} />;
+    
+    case 'admin-treatments':
+      return <AdminTreatmentsScreen onNavigate={navigate} />;
+    
+    case 'admin-gallery':
+      return <AdminGalleryScreen onNavigate={navigate} />;
+    
+    case 'admin-availability':
+      return <AdminAvailabilityScreen onNavigate={navigate} />;
+    
+    case 'admin-settings':
+      return <AdminSettingsScreen onNavigate={navigate} />;
+    
+    case 'admin-statistics':
+      return <AdminStatisticsScreen onNavigate={navigate} />;
+    
+    case 'admin-notifications':
+      return <AdminNotificationsScreen onNavigate={navigate} />;
+    
+    default:
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>מסך לא נמצא</Text>
+        </View>
+      );
+  }
+}
 
 const styles = StyleSheet.create({
-  container: {
+  errorContainer: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
+  errorText: {
+    fontSize: 18,
+    color: '#666',
   },
 });
-
-export default AppNavigator;

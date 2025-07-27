@@ -13,17 +13,15 @@ export default function BottomNav({ onOrderPress, onTabPress, activeTab }: {
   const spinValue = useRef(new Animated.Value(0)).current;
 
   const handleOrderPress = () => {
-    // Start spinning animation
+    // Start rotation animation
     Animated.timing(spinValue, {
       toValue: 1,
-      duration: 800,
+      duration: 1000,
       useNativeDriver: true,
     }).start(() => {
-      // Reset animation value for next tap
       spinValue.setValue(0);
     });
     
-    // Call the original onOrderPress
     onOrderPress?.();
   };
 
@@ -36,6 +34,7 @@ export default function BottomNav({ onOrderPress, onTabPress, activeTab }: {
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
+
   return (
     <View style={styles.wrapper}>
       <View style={{
@@ -69,10 +68,10 @@ export default function BottomNav({ onOrderPress, onTabPress, activeTab }: {
         {/* Left side - Home and Call */}
         <View style={styles.leftSide}>
           <TouchableOpacity style={styles.iconBtn} onPress={() => onTabPress && onTabPress('home')}>
-            <Ionicons name="home" size={26} color={activeTab === 'home' ? "#3b82f6" : "#ccc"} />
+            <Ionicons name="home" size={26} color={activeTab === 'home' ? "#3b82f6" : "#9ca3af"} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.iconBtn} onPress={handleCallPress}>
-            <Ionicons name="call" size={26} color="#ccc" />
+            <Ionicons name="call" size={26} color="#9ca3af" />
           </TouchableOpacity>
         </View>
 
@@ -86,7 +85,7 @@ export default function BottomNav({ onOrderPress, onTabPress, activeTab }: {
           >
             <TouchableOpacity style={styles.fab} onPress={handleOrderPress} activeOpacity={0.85}>
               <Animated.Image
-                source={require("../../assets/images/TURGI.png")}
+                source={require("../../assets/images/icon.booking.png")}
                 style={[styles.fabIcon, { transform: [{ rotate: spin }] }]}
                 resizeMode="cover"
               />
@@ -97,10 +96,10 @@ export default function BottomNav({ onOrderPress, onTabPress, activeTab }: {
         {/* Right side - Settings and Profile */}
         <View style={styles.rightSide}>
           <TouchableOpacity style={styles.iconBtn} onPress={() => onTabPress && onTabPress('settings')}>
-            <Ionicons name="settings" size={26} color={activeTab === 'settings' ? "#3b82f6" : "#ccc"} />
+            <Ionicons name="settings" size={26} color={activeTab === 'settings' ? "#3b82f6" : "#9ca3af"} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.iconBtn} onPress={() => onTabPress && onTabPress('profile')}>
-            <Ionicons name="person" size={26} color={activeTab === 'profile' ? "#3b82f6" : "#ccc"} />
+            <Ionicons name="person" size={26} color={activeTab === 'profile' ? "#3b82f6" : "#9ca3af"} />
           </TouchableOpacity>
         </View>
       </View>
@@ -197,9 +196,10 @@ const styles = StyleSheet.create({
     borderColor: "#181828",
   },
   fabIcon: {
-    width: screenWidth < 380 ? 40 : 46,
-    height: screenWidth < 380 ? 40 : 46,
-    borderRadius: screenWidth < 380 ? 20 : 23,
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   homeIndicatorWrapper: {
     alignItems: "center",

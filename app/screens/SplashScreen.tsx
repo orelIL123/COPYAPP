@@ -1,6 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from 'expo-router';
 import React, { useEffect } from 'react';
-import { Animated, Image, StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet, Text, View } from 'react-native';
 
 export default function SplashScreen() {
   const navigation = useNavigation();
@@ -41,11 +42,12 @@ export default function SplashScreen() {
           },
         ]}
       >
-        <Image
-          source={require('../../assets/images/TURGI.png')}
-          style={styles.image}
-          resizeMode="contain"
-        />
+        <View style={styles.logoContainer}>
+          <View style={[styles.logo, { backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }]}>
+            <Ionicons name="cut" size={64} color="#3b82f6" />
+            <Text style={{ color: '#3b82f6', marginTop: 8, fontSize: 16, fontWeight: 'bold' }}>Barbers Bar</Text>
+          </View>
+        </View>
       </Animated.View>
     </View>
   );
@@ -65,5 +67,15 @@ const styles = StyleSheet.create({
   image: {
     width: 250,
     height: 250,
+  },
+  logoContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logo: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 10,
   },
 }); 

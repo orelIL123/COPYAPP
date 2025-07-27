@@ -1,34 +1,36 @@
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import {
-    createUserWithEmailAndPassword,
-    EmailAuthProvider,
-    linkWithCredential,
-    onAuthStateChanged,
-    PhoneAuthProvider,
-    signInWithCredential,
-    signInWithEmailAndPassword,
-    signInWithPhoneNumber,
-    signOut,
-    updateProfile,
-    User
+  createUserWithEmailAndPassword,
+  EmailAuthProvider,
+  linkWithCredential,
+  onAuthStateChanged,
+  PhoneAuthProvider,
+  signInWithCredential,
+  signInWithEmailAndPassword,
+  signInWithPhoneNumber,
+  signOut,
+  updateProfile,
+  User
 } from 'firebase/auth';
 import {
-    addDoc,
-    collection,
-    deleteDoc,
-    doc,
-    getDoc,
-    getDocs,
-    orderBy,
-    query,
-    setDoc,
-    Timestamp,
-    updateDoc,
-    where
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  setDoc,
+  Timestamp,
+  updateDoc,
+  where
 } from 'firebase/firestore';
 import { deleteObject, getDownloadURL, listAll, ref, uploadBytes } from 'firebase/storage';
 import { auth, db, storage } from '../config/firebase';
+import { CacheUtils } from './cache';
+import { ImageOptimizer } from './imageOptimization';
 
 // Export db for use in other components
 export { db };
@@ -97,8 +99,6 @@ export const makeCurrentUserAdmin = async (): Promise<boolean> => {
     return false;
   }
 };
-import { CacheUtils } from './cache';
-import { ImageOptimizer } from './imageOptimization';
 
 
 export interface UserProfile {
@@ -291,7 +291,7 @@ export const sendSMSVerification = async (phoneNumber: string) => {
           apikey: 'YOUR_API_KEY', // You need to get this from textlocal.in
           numbers: formattedPhone,
           message: `קוד האימות שלך: ${verificationCode}`,
-          sender: 'TURGI'
+          sender: 'Barbers Bar'
         })
       });
 
@@ -417,7 +417,7 @@ export const registerUserWithPhone = async (phoneNumber: string, displayName: st
     }
     
     // Create a unique temporary email for this phone user
-    const tempEmail = `${formattedPhone.replace(/[^0-9]/g, '')}@phone.turgi.com`;
+    const tempEmail = `${formattedPhone.replace(/[^0-9]/g, '')}@phone.barbersbar.com`;
     const tempPassword = verificationCode + Date.now().toString(); // Use verification code + timestamp as password
     
     // Create user with email/password (since phone auth requires special setup)
@@ -621,38 +621,38 @@ export const getBarbers = async (useCache: boolean = false): Promise<Barber[]> =
     
     querySnapshot.forEach((doc) => {
       const barberData = { id: doc.id, ...doc.data() } as Barber;
-      // ONLY show Ron Turgeman - be very strict
+      // ONLY show Ran Algrisi - be very strict
       const name = barberData.name?.toLowerCase() || '';
-      if (name.includes('רון') || 
-          name.includes('ron') || 
-          name.includes('תורג') || 
-          name.includes('turg') ||
-          barberData.id === 'ron-turgeman' ||
-          barberData.name === 'רון תורג׳מן' ||
-          barberData.name === 'Ron Turgeman') {
+      if (name.includes('רן') || 
+          name.includes('ran') || 
+          name.includes('אגלר') || 
+          name.includes('algris') ||
+          barberData.id === 'ran-algrisi' ||
+          barberData.name === 'רן אגלריסי' ||
+          barberData.name === 'Ran Algrisi') {
         barbers.push(barberData);
       }
     });
 
-    // If no Ron found, create a default one
+    // If no Ran found, create a default one
     if (barbers.length === 0) {
-      console.log('🔧 No Ron found, creating default barber');
-      const defaultRon: Barber = {
-        id: 'ron-turgeman-default',
-        name: 'רון תורג׳מן',
+      console.log('🔧 No Ran found, creating default barber');
+      const defaultRan: Barber = {
+        id: 'ran-algrisi-default',
+        name: 'רן אגלריסי',
         image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=300&fit=crop&crop=face',
         specialties: ['תספורת גברים', 'עיצוב זקן', 'תספורת ילדים'],
-        experience: '10+ שנות ניסיון',
+        experience: '15+ שנות ניסיון',
         rating: 5,
         available: true,
         pricing: {},
-        phone: '+972542280222',
+        phone: '+972501234567',
         photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=300&fit=crop&crop=face'
       };
-      barbers.push(defaultRon);
+      barbers.push(defaultRan);
     }
     
-    console.log('✅ Returning', barbers.length, 'barber(s): Ron Turgeman only');
+    console.log('✅ Returning', barbers.length, 'barber(s): Ran Algrisi only');
     
     return barbers;
   } catch (error) {

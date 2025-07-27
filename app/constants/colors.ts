@@ -5,7 +5,7 @@ export const colors = {
   accent: '#0f3460',
   
   // Neon colors for buttons
-  neonBlue: '#00d4ff',
+  neonBlue: '#3b82f6', // Changed to bright blue
   neonGreen: '#00ff88',
   neonPurple: '#8b5cf6',
   neonPink: '#ec4899',
@@ -28,8 +28,8 @@ export const colors = {
   info: '#3b82f6',
   
   // Gradient colors
-  gradientStart: '#667eea',
-  gradientEnd: '#764ba2',
+  gradientStart: '#3b82f6', // Changed to bright blue
+  gradientEnd: '#60a5fa', // Changed to lighter blue
   
   // Border colors
   border: '#2d2d2d',

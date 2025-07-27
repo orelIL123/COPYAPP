@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Alert,
     Linking,
@@ -11,10 +12,9 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { useTranslation } from 'react-i18next';
-import { changeLanguage } from '../i18n';
 import TermsModal from '../components/TermsModal';
 import TopNav from '../components/TopNav';
+import { changeLanguage } from '../i18n';
 
 interface SettingsScreenProps {
   onNavigate: (screen: string) => void;
@@ -83,7 +83,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate, onBack }) =
   };
 
   const handleSupport = () => {
-    Linking.openURL('mailto:support@turgibarber.com?subject=תמיכה באפליקציה').catch(() => {
+    Linking.openURL('mailto:support@barbersbar.com?subject=תמיכה באפליקציה').catch(() => {
       Alert.alert('שגיאה', 'לא ניתן לפתוח את אפליקציית המייל');
     });
   };
@@ -231,7 +231,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate, onBack }) =
 
           {/* App Info */}
           <View style={styles.appInfo}>
-            <Text style={styles.appInfoText}>TURGI Barber App</Text>
+            <Text style={styles.appInfoText}>Barbers Bar App</Text>
             <Text style={styles.appVersionText}>{t('common.version') || 'גרסה'} 1.0.0</Text>
             <Text style={styles.appCreditText}>{t('home.powered_by')}</Text>
           </View>

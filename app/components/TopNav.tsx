@@ -30,7 +30,16 @@ const TopNav: React.FC<TopNavProps> = ({
   if (!fontsLoaded) return null;
   return (
     <View style={styles.container}>
-      {/* Diagonal blue gradient accent */}
+      {/* White gradient overlay on top */}
+      <LinearGradient
+        colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)', 'transparent']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.whiteOverlay}
+        pointerEvents="none"
+      />
+      
+      {/* Diagonal red gradient accent */}
       <LinearGradient
         colors={[colors.neonBlue, colors.gradientEnd]}
         start={{ x: 0, y: 0 }}
@@ -38,7 +47,7 @@ const TopNav: React.FC<TopNavProps> = ({
         style={styles.gradientAccent}
         pointerEvents="none"
       />
-      {/* Right edge blue accent */}
+      {/* Right edge red accent */}
       <LinearGradient
         colors={[colors.neonBlue, colors.gradientEnd]}
         start={{ x: 0, y: 0 }}
@@ -131,6 +140,14 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     opacity: 0.3,
     zIndex: 1,
+  },
+  whiteOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '100%',
+    zIndex: 2,
   },
 });
 

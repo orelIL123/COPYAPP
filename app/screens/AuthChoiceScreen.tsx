@@ -1,48 +1,144 @@
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+    Dimensions,
+    Image,
+    SafeAreaView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export default function AuthChoiceScreen() {
   const router = useRouter();
 
+  const handleLogin = () => {
+    router.push('/screens/AuthPhoneScreen');
+  };
+
+  const handleRegister = () => {
+    router.push('/screens/AuthPhoneScreen?mode=register');
+  };
+
   return (
-    <View style={styles.container}>
-      <Image
-        source={require('../../assets/images/TURGI.png')}
-        style={styles.logo}
-        resizeMode="contain"
-      />
-      <Text style={styles.title}>ברוך הבא!</Text>
-      <Text style={styles.subtitle}>בחר פעולה:</Text>
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => router.replace('/profile')}
-      >
-        <Text style={styles.buttonText}>התחברות</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: '#6366f1' }]}
-        onPress={() => router.replace('/profile')}
-      >
-        <Text style={styles.buttonText}>הרשמה</Text>
-      </TouchableOpacity>
-    </View>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        {/* Logo Section */}
+        <View style={styles.logoSection}>
+          <Image
+            source={require('../../assets/images/icon.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.appName}>Barbers Bar</Text>
+          <Text style={styles.tagline}>המספרה המקצועית שלך</Text>
+        </View>
+
+        {/* Auth Buttons Section */}
+        <View style={styles.authSection}>
+          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+            <Text style={styles.loginButtonText}>התחברות</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
+            <Text style={styles.registerButtonText}>הרשמה</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.termsText}>
+            בהמשך השימוש באפליקציה, אתה מסכים ל{' '}
+            <Text style={styles.termsLink}>תנאי השימוש</Text>
+            {' '}ול{' '}
+            <Text style={styles.termsLink}>מדיניות הפרטיות</Text>
+          </Text>
+        </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0a0a16', padding: 24 },
-  logo: { width: 100, height: 100, marginBottom: 32, borderRadius: 50, backgroundColor: '#181828' },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#fff', marginBottom: 12, textAlign: 'center' },
-  subtitle: { fontSize: 18, color: '#b0b0b0', marginBottom: 24, textAlign: 'center' },
-  button: {
-    backgroundColor: '#3b82f6',
-    paddingVertical: 16,
-    paddingHorizontal: 40,
-    borderRadius: 32,
-    marginBottom: 16,
-    width: 220,
-    alignItems: 'center',
+  container: {
+    flex: 1,
+    backgroundColor: '#ffffff',
   },
-  buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold', textAlign: 'center' },
+  content: {
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingHorizontal: 32,
+    paddingTop: screenHeight * 0.1,
+    paddingBottom: screenHeight * 0.1,
+  },
+  logoSection: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  logo: {
+    width: screenWidth * 0.3,
+    height: screenWidth * 0.3,
+    marginBottom: 24,
+  },
+  appName: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  tagline: {
+    fontSize: 18,
+    color: '#666666',
+    textAlign: 'center',
+  },
+  authSection: {
+    width: '100%',
+  },
+  loginButton: {
+    backgroundColor: '#3b82f6',
+    height: 56,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: '#3b82f6',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  loginButtonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  registerButton: {
+    backgroundColor: '#ffffff',
+    height: 56,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#3b82f6',
+    marginBottom: 32,
+  },
+  registerButtonText: {
+    color: '#3b82f6',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  termsText: {
+    fontSize: 14,
+    color: '#666666',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  termsLink: {
+    color: '#3b82f6',
+    textDecorationLine: 'underline',
+  },
 }); 

@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "Barber App",
-    "slug": "barber_app",
+    "name": "Barbers Bar",
+    "slug": "barbers-bar",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "barberapp",
+    "scheme": "barbersbar",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.orelaharon.rontugemanbarber",
+      "bundleIdentifier": "com.barbersbar.app",
       "googleServicesFile": "./app/GoogleService-Info.plist",
       "config": {
         "usesNonExemptEncryption": false
@@ -22,7 +22,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.orelaharon.rontugemanbarber",
+      "package": "com.barbersbar.app",
       "googleServicesFile": "./app/google-services.json"
     },
     "web": {
