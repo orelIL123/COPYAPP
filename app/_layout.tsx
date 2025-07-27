@@ -28,7 +28,8 @@ export default function RootLayout() {
           <Stack.Screen name="splash" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="+not-found" />
-        </Stack>
+          <Stack.Screen name="AuthChoiceScreen" options={{ headerShown: false }} />
+          <Stack.Screen name="AuthPhoneScreen" options={{ headerShown: false }} />        </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>
     </I18nextProvider>
