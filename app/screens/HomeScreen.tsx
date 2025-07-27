@@ -11,6 +11,7 @@ import {
     Image,
     ImageBackground,
     InteractionManager,
+    Linking,
     SafeAreaView,
     ScrollView,
     StyleSheet,
@@ -318,6 +319,26 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
     onNavigate('team');
   };
 
+  const handleMyAppointmentsPress = () => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        'התחברות נדרשת',
+        'עליך להתחבר כדי לצפות בתורים שלך',
+        [
+          { text: 'ביטול', style: 'cancel' },
+          { text: 'התחבר', onPress: () => onNavigate('auth') }
+        ]
+      );
+      return;
+    }
+    onNavigate('appointments');
+  };
+
+  const handleCallPress = () => {
+    const phoneNumber = '0548353232';
+    Linking.openURL(`tel:${phoneNumber}`);
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -375,50 +396,88 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
           />
         </Animated.View>
 
-        {/* 3D Gallery Carousel Section */}
-        <Animated.View style={[styles.gallerySection, { opacity: cardsFade }]}>
-            <Text style={styles.sectionTitle}>{t('home.gallery')}</Text>
-            <View style={styles.carousel3DContainer}>
-              <Animated.ScrollView 
-                ref={carousel3DRef}
-                horizontal 
-                showsHorizontalScrollIndicator={false} 
-                contentContainerStyle={styles.carousel3DContent}
-                pagingEnabled={false}
-                decelerationRate="normal"
-                onScroll={Animated.event(
-                  [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-                  { useNativeDriver: false, listener: handleScroll }
-                )}
-                scrollEventThrottle={16}
-              >
-                {infiniteImages.map((img, index) => (
-                  <Animated.View 
-                    key={`gallery-${index}`} 
-                    style={[
-                      styles.carousel3DCard,
-                      getCardTransform(index, scrollX),
-                    ]}
-                  >
-                    <Image
-                      source={{ uri: img }}
-                      style={styles.carousel3DImage}
-                      resizeMode="cover"
-                    />
-                    <View style={styles.carousel3DOverlay}>
-                      <LinearGradient
-                        colors={['transparent', 'rgba(0,0,0,0.8)']}
-                        style={styles.carousel3DGradient}
-                      />
-                    </View>
-                  </Animated.View>
-                ))}
-              </Animated.ScrollView>
-            </View>
-        </Animated.View>
-
         {/* Content */}
         <View style={styles.contentWrapper}>
+          {/* Quick Actions Section */}
+          <Animated.View style={[styles.quickActionsSection, { opacity: cardsFade }]}>
+            <Text style={styles.sectionTitle}>פעולות מהירות</Text>
+            <View style={styles.quickActionsContainer}>
+              <TouchableOpacity style={styles.quickActionButton} onPress={handleTeamPress}>
+                <LinearGradient
+                  colors={['rgba(59, 130, 246, 0.1)', 'rgba(255, 255, 255, 0.95)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.quickActionGradient}
+                />
+                <Ionicons name="people" size={28} color="#3b82f6" />
+                <Text style={styles.quickActionText}>הצוות שלנו</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.quickActionButton} onPress={handleMyAppointmentsPress}>
+                <LinearGradient
+                  colors={['rgba(59, 130, 246, 0.1)', 'rgba(255, 255, 255, 0.95)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.quickActionGradient}
+                />
+                <Ionicons name="calendar" size={28} color="#3b82f6" />
+                <Text style={styles.quickActionText}>התורים שלי</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.quickActionButton} onPress={handleCallPress}>
+                <LinearGradient
+                  colors={['rgba(59, 130, 246, 0.1)', 'rgba(255, 255, 255, 0.95)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.quickActionGradient}
+                />
+                <Ionicons name="call" size={28} color="#3b82f6" />
+                <Text style={styles.quickActionText}>התקשר</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+
+          {/* 3D Gallery Carousel Section */}
+          <Animated.View style={[styles.gallerySection, { opacity: cardsFade }]}>
+              <Text style={styles.sectionTitle}>{t('home.gallery')}</Text>
+              <View style={styles.carousel3DContainer}>
+                <Animated.ScrollView 
+                  ref={carousel3DRef}
+                  horizontal 
+                  showsHorizontalScrollIndicator={false} 
+                  contentContainerStyle={styles.carousel3DContent}
+                  pagingEnabled={false}
+                  decelerationRate="normal"
+                  onScroll={Animated.event(
+                    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+                    { useNativeDriver: false, listener: handleScroll }
+                  )}
+                  scrollEventThrottle={16}
+                >
+                  {infiniteImages.map((img, index) => (
+                    <Animated.View 
+                      key={`gallery-${index}`} 
+                      style={[
+                        styles.carousel3DCard,
+                        getCardTransform(index, scrollX),
+                      ]}
+                    >
+                      <Image
+                        source={{ uri: img }}
+                        style={styles.carousel3DImage}
+                        resizeMode="cover"
+                      />
+                      <View style={styles.carousel3DOverlay}>
+                        <LinearGradient
+                          colors={['transparent', 'rgba(0,0,0,0.8)']}
+                          style={styles.carousel3DGradient}
+                        />
+                      </View>
+                    </Animated.View>
+                  ))}
+                </Animated.ScrollView>
+              </View>
+          </Animated.View>
           {/* About Us Section */}
           <Animated.View style={[styles.aboutUsSection, { opacity: cardsFade }]}>
             <Text style={styles.sectionTitle}>הכירו אותנו</Text>
@@ -683,6 +742,49 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1a1a1a',
     marginBottom: 16,
+    textAlign: 'center',
+  },
+  quickActionsSection: {
+    marginBottom: 30,
+    paddingVertical: 10,
+  },
+  quickActionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+  },
+  quickActionButton: {
+    flex: 1,
+    marginHorizontal: 5,
+    borderRadius: 15,
+    overflow: 'hidden',
+    backgroundColor: '#ffffff',
+    paddingVertical: 20,
+    paddingHorizontal: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 100,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  quickActionGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginTop: 8,
     textAlign: 'center',
   },
   gallerySection: {
