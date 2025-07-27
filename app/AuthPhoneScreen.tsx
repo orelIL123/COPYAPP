@@ -159,7 +159,7 @@ export default function AuthPhoneScreen() {
       <View style={styles.content}>
         <View style={styles.logoSection}>
           <Image
-            source={require('../../assets/images/icon.png')}
+            source={require('../assets/images/icon.png')}
             style={styles.logo}
             resizeMode="contain"
           />

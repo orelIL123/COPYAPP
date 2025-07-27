@@ -85,7 +85,7 @@ export default function BottomNav({ onOrderPress, onTabPress, activeTab }: {
           >
             <TouchableOpacity style={styles.fab} onPress={handleOrderPress} activeOpacity={0.85}>
               <Animated.Image
-                source={require("../../assets/images/icon.booking.png")}
+                source={require("../assets/images/icon.booking.png")}
                 style={[styles.fabIcon, { transform: [{ rotate: spin }] }]}
                 resizeMode="cover"
               />
