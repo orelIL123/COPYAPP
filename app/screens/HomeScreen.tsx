@@ -421,12 +421,19 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
         `📅 ${formatDate(apt.date)}\n📋 ${apt.treatmentName}\n👤 ${apt.barberName}\n✅ ${getStatusText(apt.status)}`
       ).join('\n\n');
 
+      // Show appointments in a styled alert
       Alert.alert(
-        'התורים הקרובים שלי',
+        '📅 התורים הקרובים שלי',
         appointmentList,
         [
-          { text: 'הזמן תור חדש', onPress: () => onNavigate('booking') },
-          { text: 'סגור', style: 'default' }
+          { 
+            text: '📋 הזמן תור חדש', 
+            onPress: () => onNavigate('booking')
+          },
+          { 
+            text: '❌ סגור', 
+            style: 'cancel'
+          }
         ]
       );
     } catch (error) {
