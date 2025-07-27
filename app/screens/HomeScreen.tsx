@@ -319,7 +319,7 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
     onNavigate('team');
   };
 
-  const handleMyAppointmentsPress = () => {
+  const handleMyAppointmentsPress = async () => {
     if (!isAuthenticated) {
       Alert.alert(
         'התחברות נדרשת',
@@ -331,7 +331,112 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
       );
       return;
     }
-    onNavigate('profile');
+
+    try {
+      // Import the function to get user appointments
+      const { getUserAppointments } = await import('../../services/firebase');
+      const userAppointments = await getUserAppointments(auth.currentUser?.uid || '');
+      
+      if (userAppointments.length === 0) {
+        Alert.alert(
+          'התורים שלי',
+          'אין לך תורים קיימים',
+          [
+            { text: 'הזמן תור חדש', onPress: () => onNavigate('booking') },
+            { text: 'סגור', style: 'cancel' }
+          ]
+        );
+        return;
+      }
+
+      // Filter upcoming appointments
+      const upcomingAppointments = userAppointments
+        .filter(apt => apt.status === 'confirmed' || apt.status === 'pending')
+        .slice(0, 5); // Show up to 5 appointments
+
+      if (upcomingAppointments.length === 0) {
+        Alert.alert(
+          'התורים שלי',
+          'אין לך תורים קרובים',
+          [
+            { text: 'הזמן תור חדש', onPress: () => onNavigate('booking') },
+            { text: 'סגור', style: 'cancel' }
+          ]
+        );
+        return;
+      }
+
+      // Format appointments for display
+      const formatDate = (timestamp: any) => {
+        if (!timestamp) return 'תאריך לא ידוע';
+        const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+        return date.toLocaleDateString('he-IL', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      };
+
+      const getStatusText = (status: string) => {
+        switch (status) {
+          case 'confirmed': return 'מאושר';
+          case 'pending': return 'ממתין לאישור';
+          case 'completed': return 'הושלם';
+          case 'cancelled': return 'בוטל';
+          default: return status;
+        }
+      };
+
+      // Get treatment and barber names for each appointment
+      const appointmentDetails = await Promise.all(
+        upcomingAppointments.map(async (apt) => {
+          try {
+            const [treatment, barber] = await Promise.all([
+              import('../../services/firebase').then(m => m.getTreatments()).then(treatments => 
+                treatments.find(t => t.id === apt.treatmentId)
+              ),
+              import('../../services/firebase').then(m => m.getBarbers()).then(barbers => 
+                barbers.find(b => b.id === apt.barberId)
+              )
+            ]);
+            
+            return {
+              ...apt,
+              treatmentName: treatment?.name || 'טיפול לא ידוע',
+              barberName: barber?.name || 'מספר לא ידוע'
+            };
+          } catch (error) {
+            return {
+              ...apt,
+              treatmentName: 'טיפול לא ידוע',
+              barberName: 'מספר לא ידוע'
+            };
+          }
+        })
+      );
+
+      const appointmentList = appointmentDetails.map(apt => 
+        `📅 ${formatDate(apt.date)}\n📋 ${apt.treatmentName}\n👤 ${apt.barberName}\n✅ ${getStatusText(apt.status)}`
+      ).join('\n\n');
+
+      Alert.alert(
+        'התורים הקרובים שלי',
+        appointmentList,
+        [
+          { text: 'הזמן תור חדש', onPress: () => onNavigate('booking') },
+          { text: 'סגור', style: 'default' }
+        ]
+      );
+    } catch (error) {
+      console.error('Error fetching appointments:', error);
+      Alert.alert(
+        'שגיאה',
+        'לא ניתן לטעון את התורים כרגע',
+        [{ text: 'סגור', style: 'default' }]
+      );
+    }
   };
 
   const handleCallPress = () => {
