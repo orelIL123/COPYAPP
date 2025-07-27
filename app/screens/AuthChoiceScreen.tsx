@@ -27,11 +27,11 @@ export default function AuthChoiceScreen() {
       <View style={styles.content}>
         {/* Logo Section */}
         <View style={styles.logoSection}>
-          <Image
-            source={require('../assets/images/icon.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+      <Image
+            source={require('../../assets/images/icon.png')}
+        style={styles.logo}
+        resizeMode="contain"
+      />
           <Text style={styles.appName}>Barbers Bar</Text>
           <Text style={styles.tagline}>המספרה המקצועית שלך</Text>
         </View>
@@ -40,11 +40,11 @@ export default function AuthChoiceScreen() {
         <View style={styles.authSection}>
           <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
             <Text style={styles.loginButtonText}>התחברות</Text>
-          </TouchableOpacity>
+      </TouchableOpacity>
 
           <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
             <Text style={styles.registerButtonText}>הרשמה</Text>
-          </TouchableOpacity>
+      </TouchableOpacity>
 
           <Text style={styles.termsText}>
             בהמשך השימוש באפליקציה, אתה מסכים ל{' '}
@@ -53,7 +53,7 @@ export default function AuthChoiceScreen() {
             <Text style={styles.termsLink}>מדיניות הפרטיות</Text>
           </Text>
         </View>
-      </View>
+    </View>
     </SafeAreaView>
   );
 }

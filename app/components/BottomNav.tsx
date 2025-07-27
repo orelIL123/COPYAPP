@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRef } from "react";
-import { Animated, Dimensions, Linking, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Animated, Dimensions, Image, Linking, StyleSheet, TouchableOpacity, View } from "react-native";
+
+const AnimatedImage = Animated.createAnimatedComponent(Image);
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -84,8 +86,8 @@ export default function BottomNav({ onOrderPress, onTabPress, activeTab }: {
             end={{ x: 1, y: 1 }}
           >
             <TouchableOpacity style={styles.fab} onPress={handleOrderPress} activeOpacity={0.85}>
-              <Animated.Image
-                source={require("../assets/images/icon.booking.png")}
+              <AnimatedImage
+                source={require("../../assets/images/icon.booking.png")}
                 style={[styles.fabIcon, { transform: [{ rotate: spin }] }]}
                 resizeMode="cover"
               />

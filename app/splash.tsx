@@ -12,11 +12,11 @@ export default function SplashScreen() {
       onAuthStateChanged(auth, (user) => {
         if (user) {
           // Check if user is admin
-          if (user.email === 'orel895@gmail.com') {
-            router.replace('/admin-home');
-          } else {
+          // if (user.email === 'orel895@gmail.com') {
+          //   router.replace('/admin-home');
+          // } else {
             router.replace('/(tabs)');
-          }
+          // }
         } else {
           // Guest mode - go directly to home
           router.replace('/(tabs)');

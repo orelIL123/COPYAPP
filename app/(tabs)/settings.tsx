@@ -1,6 +1,5 @@
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { SafeAreaView, StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import SettingsScreen from '../screens/SettingsScreen';
 
 export default function SettingsTab() {
@@ -13,6 +12,9 @@ export default function SettingsTab() {
         break;
       case 'profile':
         router.replace('/profile');
+        break;
+      case 'admin-home':
+        router.replace('/admin-home');
         break;
       default:
         router.replace('/(tabs)');
