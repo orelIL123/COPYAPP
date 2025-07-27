@@ -331,7 +331,7 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
       );
       return;
     }
-    onNavigate('appointments');
+    onNavigate('profile');
   };
 
   const handleCallPress = () => {
@@ -694,7 +694,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   contentWrapper: {
-    paddingTop: 220,
+    paddingTop: 120,
     paddingHorizontal: 20,
     paddingBottom: 40,
   },
@@ -741,12 +741,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: '#1a1a1a',
-    marginBottom: 16,
+    marginBottom: 12,
     textAlign: 'center',
   },
   quickActionsSection: {
-    marginBottom: 30,
-    paddingVertical: 10,
+    marginBottom: 15,
+    paddingVertical: 3,
   },
   quickActionsContainer: {
     flexDirection: 'row',
@@ -788,8 +788,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   gallerySection: {
-    marginBottom: 20,
-    paddingVertical: 15,
+    marginBottom: 15,
+    paddingVertical: 10,
   },
   carousel3DContainer: {
     height: 340,
@@ -829,7 +829,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   aboutUsSection: {
-    marginBottom: 30,
+    marginBottom: 20,
     paddingVertical: 5,
   },
   aboutUsCard: {
@@ -867,8 +867,8 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   socialSection: {
-    marginBottom: 30,
-    paddingVertical: 10,
+    marginBottom: 20,
+    paddingVertical: 8,
   },
   socialContainer: {
     flexDirection: 'row',
@@ -899,8 +899,8 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   contactSection: {
-    marginBottom: 40,
-    paddingVertical: 10,
+    marginBottom: 25,
+    paddingVertical: 8,
   },
   contactInfo: {
     backgroundColor: '#ffffff',
@@ -926,8 +926,8 @@ const styles = StyleSheet.create({
   contactItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingVertical: 4,
+    marginBottom: 12,
+    paddingVertical: 3,
   },
   contactText: {
     fontSize: 16,
@@ -939,12 +939,12 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 180,
     borderRadius: 15,
-    marginTop: 16,
+    marginTop: 12,
   },
   termsSection: {
     alignItems: 'center',
-    marginBottom: 20,
-    paddingVertical: 10,
+    marginBottom: 15,
+    paddingVertical: 8,
   },
   termsButton: {
     paddingVertical: 8,
@@ -987,11 +987,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1a1a1a',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   modalScrollView: {
     maxHeight: 300,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   modalText: {
     fontSize: 16,

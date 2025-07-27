@@ -13,7 +13,7 @@ export default function TabLayout() {
     const last = segments[segments.length - 1];
     if (String(last) === 'index') return 'home';
     if (String(last) === 'profile') return 'profile';
-    if (String(last) === 'settings') return 'settings';
+    if (String(last) === 'team') return 'team';
     return 'home';
   }, [segments]);
 
@@ -21,7 +21,7 @@ export default function TabLayout() {
   const handleTabPress = (tab: string) => {
     if (tab === 'home') router.replace('/(tabs)');
     else if (tab === 'profile') router.replace('/profile');
-    else if (tab === 'settings') router.replace('/(tabs)/settings');
+    else if (tab === 'team') router.replace('/team');
   };
 
   // ניווט מהיר מה־FAB - מנתב לספר בוקינג

@@ -97,8 +97,8 @@ export default function BottomNav({ onOrderPress, onTabPress, activeTab }: {
 
         {/* Right side - Settings and Profile */}
         <View style={styles.rightSide}>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => onTabPress && onTabPress('settings')}>
-            <Ionicons name="settings" size={26} color={activeTab === 'settings' ? "#3b82f6" : "#9ca3af"} />
+          <TouchableOpacity style={styles.iconBtn} onPress={() => onTabPress && onTabPress('team')}>
+            <Ionicons name="people" size={26} color={activeTab === 'team' ? "#3b82f6" : "#9ca3af"} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.iconBtn} onPress={() => onTabPress && onTabPress('profile')}>
             <Ionicons name="person" size={26} color={activeTab === 'profile' ? "#3b82f6" : "#9ca3af"} />
