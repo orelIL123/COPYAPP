@@ -655,7 +655,7 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
               </View>
               <View style={styles.contactItem}>
                 <Ionicons name="location" size={20} color="#3b82f6" />
-                <Text style={styles.contactText}>רחוב הראשי 123, תל אביב</Text>
+                <Text style={styles.contactText}>רפיח ים 13</Text>
               </View>
               <View style={styles.contactItem}>
                 <Ionicons name="time" size={20} color="#3b82f6" />
