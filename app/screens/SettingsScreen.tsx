@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Alert,
@@ -15,6 +15,7 @@ import {
 import TermsModal from '../components/TermsModal';
 import TopNav from '../components/TopNav';
 import { changeLanguage } from '../i18n';
+import { getCurrentUser, checkIsBarber, checkIsAdmin, onAuthStateChange } from '../../services/firebase';
 
 interface SettingsScreenProps {
   onNavigate: (screen: string) => void;
@@ -28,6 +29,29 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate, onBack }) =
   const [generalNotifications, setGeneralNotifications] = useState(true);
   const [showTerms, setShowTerms] = useState(false);
   const [fontSize, setFontSize] = useState(16);
+  const [isBarber, setIsBarber] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChange(async (user) => {
+      if (user) {
+        setCurrentUserId(user.uid);
+        const [barberStatus, adminStatus] = await Promise.all([
+          checkIsBarber(user.uid),
+          checkIsAdmin(user.uid)
+        ]);
+        setIsBarber(barberStatus);
+        setIsAdmin(adminStatus);
+      } else {
+        setIsBarber(false);
+        setIsAdmin(false);
+        setCurrentUserId(null);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
 
   const languages = [
     { code: 'he', name: t('settings.hebrew'), flag: '🇮🇱' },
@@ -104,6 +128,40 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onNavigate, onBack }) =
       
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
+          
+          {/* Barber Dashboard Access */}
+          {isBarber && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>🏢 ניהול עסק</Text>
+              <TouchableOpacity 
+                style={styles.settingItem}
+                onPress={() => onNavigate('barber-dashboard')}
+              >
+                <View style={styles.settingLeft}>
+                  <Ionicons name="business" size={20} color="#667eea" style={styles.settingIcon} />
+                  <Text style={[styles.settingText, { fontSize }]}>לוח הבקרה שלי</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#999" />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Admin Access */}
+          {isAdmin && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>👑 ניהול מערכת</Text>
+              <TouchableOpacity 
+                style={styles.settingItem}
+                onPress={() => onNavigate('admin-home')}
+              >
+                <View style={styles.settingLeft}>
+                  <Ionicons name="settings" size={20} color="#dc3545" style={styles.settingIcon} />
+                  <Text style={[styles.settingText, { fontSize }]}>פאנל ניהול</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#999" />
+              </TouchableOpacity>
+            </View>
+          )}
           
           {/* Language Settings */}
           <View style={styles.section}>

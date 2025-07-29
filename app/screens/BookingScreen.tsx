@@ -146,6 +146,36 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ onNavigate, onBack, onClo
     return true;
   }
 
+  // Check if a time slot overlaps with break hours
+  function isSlotDuringBreak(slotStart: Date, slotDuration: number, dayAvailability: any) {
+    if (!dayAvailability.hasBreak || !dayAvailability.breakStartTime || !dayAvailability.breakEndTime) {
+      return false;
+    }
+    
+    const [breakStartHour, breakStartMin] = dayAvailability.breakStartTime.split(':').map(Number);
+    const [breakEndHour, breakEndMin] = dayAvailability.breakEndTime.split(':').map(Number);
+    
+    const breakStart = new Date(slotStart);
+    breakStart.setHours(breakStartHour, breakStartMin, 0, 0);
+    
+    const breakEnd = new Date(slotStart);
+    breakEnd.setHours(breakEndHour, breakEndMin, 0, 0);
+    
+    const slotEnd = new Date(slotStart.getTime() + slotDuration * 60000);
+    
+    // Check if any part of the slot overlaps with break time
+    const hasOverlap = slotStart < breakEnd && slotEnd > breakStart;
+    
+    if (hasOverlap) {
+      console.log('❌ Slot blocked by break time:', {
+        slotTime: `${slotStart.getHours()}:${slotStart.getMinutes().toString().padStart(2, '0')}`,
+        breakTime: `${dayAvailability.breakStartTime}-${dayAvailability.breakEndTime}`
+      });
+    }
+    
+    return hasOverlap;
+  }
+
   // Generate available slots for the selected barber, date, and treatment duration
   async function generateAvailableSlots(barberId: string, date: Date, treatmentDuration: number) {
     try {
@@ -215,6 +245,9 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ onNavigate, onBack, onClo
       }
       
       console.log('📅 Barber availability:', dayAvailability.startTime, 'to', dayAvailability.endTime);
+      if (dayAvailability.hasBreak) {
+        console.log('🛑 Break time:', dayAvailability.breakStartTime, 'to', dayAvailability.breakEndTime);
+      }
       
       const appointments = await getBarberAppointmentsForDay(barberId, date);
       console.log('Found', appointments.length, 'appointments for this day');
@@ -244,6 +277,12 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ onNavigate, onBack, onClo
         // Skip past times if it's today
         const now = new Date();
         if (date.toDateString() === now.toDateString() && currentSlot <= now) {
+          currentSlot.setMinutes(currentSlot.getMinutes() + treatmentDuration);
+          continue;
+        }
+        
+        // Check if slot is during break time
+        if (isSlotDuringBreak(currentSlot, treatmentDuration, dayAvailability)) {
           currentSlot.setMinutes(currentSlot.getMinutes() + treatmentDuration);
           continue;
         }
@@ -315,25 +354,32 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ onNavigate, onBack, onClo
         const slots = await generateAvailableSlots(selectedBarber.id, date, selectedTreatment.duration);
         const timeStrings = slots.map(slot => slot.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
         
-        // If no slots available, show basic times as fallback but filter out taken ones
+        // If no slots available, show basic times as fallback but filter out taken ones and break hours
         if (timeStrings.length === 0) {
           console.log('No slots available, using fallback times');
           const fallbackTimes = [];
           
-          // Get existing appointments for filtering
+          // Get existing appointments and availability for filtering
           const existingAppointments = await getBarberAppointmentsForDay(selectedBarber.id, date);
+          const barberAvailability = await getBarberAvailability(selectedBarber.id);
+          const dayAvailability = barberAvailability.find(a => a.dayOfWeek === date.getDay());
           
           for (let hour = 9; hour <= 18; hour++) {
             const timeSlots = [
               `${hour.toString().padStart(2, '0')}:00`,
               hour < 18 ? `${hour.toString().padStart(2, '0')}:30` : null
-            ].filter(Boolean);
+            ].filter((slot): slot is string => slot !== null);
             
             for (const timeSlot of timeSlots) {
               // Check if this time slot is available
               const slotDateTime = new Date(date);
               const [slotHour, slotMin] = timeSlot.split(':').map(Number);
               slotDateTime.setHours(slotHour, slotMin, 0, 0);
+              
+              // Check if during break time
+              if (dayAvailability && isSlotDuringBreak(slotDateTime, selectedTreatment.duration, dayAvailability)) {
+                continue;
+              }
               
               if (isSlotAvailable(slotDateTime, selectedTreatment.duration, existingAppointments)) {
                 fallbackTimes.push(timeSlot);
@@ -348,24 +394,31 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ onNavigate, onBack, onClo
         }
       } catch (error) {
         console.error('Error generating slots, using fallback:', error);
-        // Fallback to basic times but filter out taken ones
+        // Fallback to basic times but filter out taken ones and break hours
         const fallbackTimes = [];
         
         try {
-          // Get existing appointments for filtering
+          // Get existing appointments and availability for filtering
           const existingAppointments = await getBarberAppointmentsForDay(selectedBarber.id, date);
+          const barberAvailability = await getBarberAvailability(selectedBarber.id);
+          const dayAvailability = barberAvailability.find(a => a.dayOfWeek === date.getDay());
           
           for (let hour = 9; hour <= 18; hour++) {
             const timeSlots = [
               `${hour.toString().padStart(2, '0')}:00`,
               hour < 18 ? `${hour.toString().padStart(2, '0')}:30` : null
-            ].filter(Boolean);
+            ].filter((slot): slot is string => slot !== null);
             
             for (const timeSlot of timeSlots) {
               // Check if this time slot is available
               const slotDateTime = new Date(date);
               const [slotHour, slotMin] = timeSlot.split(':').map(Number);
               slotDateTime.setHours(slotHour, slotMin, 0, 0);
+              
+              // Check if during break time
+              if (dayAvailability && isSlotDuringBreak(slotDateTime, selectedTreatment.duration, dayAvailability)) {
+                continue;
+              }
               
               if (isSlotAvailable(slotDateTime, selectedTreatment.duration, existingAppointments)) {
                 fallbackTimes.push(timeSlot);
@@ -376,7 +429,7 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ onNavigate, onBack, onClo
           console.log('Error fallback - filtered times:', fallbackTimes);
         } catch (innerError) {
           console.error('Error in fallback filtering:', innerError);
-          // Last resort - show basic times
+          // Last resort - show basic times (without break filtering as we can't access availability)
           for (let hour = 9; hour <= 18; hour++) {
             fallbackTimes.push(`${hour.toString().padStart(2, '0')}:00`);
             if (hour < 18) {

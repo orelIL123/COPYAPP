@@ -47,6 +47,7 @@ export const createAdminUser = async (email: string, password: string, displayNa
       uid: user.uid,
       email: email,
       displayName: displayName,
+      firstName: displayName.split(' ')[0] || displayName, // Take first word as firstName
       phone: phone,
       isAdmin: true, // Make this user an admin
       createdAt: Timestamp.now(),
@@ -79,6 +80,7 @@ export const makeCurrentUserAdmin = async (): Promise<boolean> => {
         uid: currentUser.uid,
         email: currentUser.email || '',
         displayName: currentUser.displayName || 'Admin User',
+        firstName: (currentUser.displayName || 'Admin').split(' ')[0] || 'Admin',
         phone: currentUser.phoneNumber || '',
         isAdmin: true,
         createdAt: Timestamp.now(),
@@ -105,9 +107,22 @@ export interface UserProfile {
   uid: string;
   email?: string; // Make email optional for phone auth
   displayName: string;
+  firstName: string; // שם פרטי
   phone: string;
   profileImage?: string;
   isAdmin?: boolean;
+  isBarber?: boolean; // Added to identify barber users
+  barberId?: string; // Link to barber document
+  role?: 'admin' | 'barber' | 'customer'; // Role-based permissions
+  permissions?: {
+    canManageOwnAvailability?: boolean;
+    canViewOwnAppointments?: boolean;
+    canManageOwnAppointments?: boolean;
+    canViewStatistics?: boolean;
+    canManageAllBarbers?: boolean;
+    canManageSettings?: boolean;
+    canManageUsers?: boolean;
+  };
   hasPassword?: boolean; // Added for phone auth with password
   createdAt: Timestamp;
   pushToken?: string; // Added for push notifications
@@ -177,6 +192,10 @@ export interface BarberAvailability {
   startTime: string; // "09:00"
   endTime: string;   // "18:00"
   isAvailable: boolean;
+  // Break time fields
+  hasBreak?: boolean;
+  breakStartTime?: string; // "13:00"
+  breakEndTime?: string;   // "14:00"
   createdAt: Timestamp;
 }
 
@@ -217,6 +236,7 @@ export const registerUser = async (email: string, password: string, displayName:
       uid: user.uid,
       email: user.email || '',
       displayName: displayName,
+      firstName: displayName.split(' ')[0] || displayName, // Take first word as firstName
       phone: phone,
       isAdmin: isAdminEmail, // Automatically set admin for specific email
       createdAt: Timestamp.now()
@@ -435,6 +455,7 @@ export const registerUserWithPhone = async (phoneNumber: string, displayName: st
       uid: user.uid,
       email: tempEmail,
       displayName: displayName,
+      firstName: displayName.split(' ')[0] || displayName, // Take first word as firstName
       phone: formattedPhone,
       isAdmin: isAdminPhone,
       hasPassword: true, // User now has a password (the temp one)
@@ -621,38 +642,17 @@ export const getBarbers = async (useCache: boolean = false): Promise<Barber[]> =
     
     querySnapshot.forEach((doc) => {
       const barberData = { id: doc.id, ...doc.data() } as Barber;
-      // ONLY show Ran Algrisi - be very strict
-      const name = barberData.name?.toLowerCase() || '';
-      if (name.includes('רן') || 
-          name.includes('ran') || 
-          name.includes('אגלר') || 
-          name.includes('algris') ||
-          barberData.id === 'ran-algrisi' ||
-          barberData.name === 'רן אגלריסי' ||
-          barberData.name === 'Ran Algrisi') {
-        barbers.push(barberData);
-      }
+      barbers.push(barberData);
     });
 
-    // If no Ran found, create a default one
-    if (barbers.length === 0) {
-      console.log('🔧 No Ran found, creating default barber');
-      const defaultRan: Barber = {
-        id: 'ran-algrisi-default',
-        name: 'רן אגלריסי',
-        image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=300&fit=crop&crop=face',
-        specialties: ['תספורת גברים', 'עיצוב זקן', 'תספורת ילדים'],
-        experience: '15+ שנות ניסיון',
-        rating: 5,
-        available: true,
-        pricing: {},
-        phone: '+972501234567',
-        photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=300&fit=crop&crop=face'
-      };
-      barbers.push(defaultRan);
-    }
+    // Sort barbers by name for consistent ordering
+    barbers.sort((a, b) => {
+      const nameA = a.name || '';
+      const nameB = b.name || '';
+      return nameA.localeCompare(nameB, 'he');
+    });
     
-    console.log('✅ Returning', barbers.length, 'barber(s): Ran Algrisi only');
+    console.log('✅ Returning', barbers.length, 'barber(s)');
     
     return barbers;
   } catch (error) {
@@ -788,6 +788,100 @@ export const getUserAppointments = async (userId: string): Promise<Appointment[]
   }
 };
 
+// Cancel appointment with 2-hour restriction
+export const cancelAppointment = async (appointmentId: string, userId: string): Promise<{ success: boolean; message: string }> => {
+  try {
+    const docRef = doc(db, 'appointments', appointmentId);
+    const appointmentDoc = await getDoc(docRef);
+    
+    if (!appointmentDoc.exists()) {
+      return { success: false, message: 'התור לא נמצא' };
+    }
+    
+    const appointment = appointmentDoc.data() as Appointment;
+    
+    // Check if user owns this appointment
+    if (appointment.userId !== userId) {
+      return { success: false, message: 'אין לך הרשאה לבטל תור זה' };
+    }
+    
+    // Check if appointment can be cancelled (not already cancelled/completed)
+    if (appointment.status === 'cancelled') {
+      return { success: false, message: 'התור כבר בוטל' };
+    }
+    
+    if (appointment.status === 'completed') {
+      return { success: false, message: 'לא ניתן לבטל תור שהושלם' };
+    }
+    
+    // Check 2-hour restriction
+    const now = new Date();
+    const appointmentDate = appointment.date.toDate();
+    const timeDifferenceHours = (appointmentDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+    
+    if (timeDifferenceHours < 2) {
+      return { 
+        success: false, 
+        message: 'מצטערים התור שלך קרוב מדי! אי אפשר לבטל, דבר עם המספר שלך להמשך טיפול.' 
+      };
+    }
+    
+    // Cancel the appointment
+    await updateDoc(docRef, {
+      status: 'cancelled',
+      cancelledAt: Timestamp.now(),
+      cancelledBy: 'customer'
+    });
+    
+    // Send notification to admin about cancellation
+    try {
+      const [treatment, barber] = await Promise.all([
+        getTreatments().then(treatments => treatments.find(t => t.id === appointment.treatmentId)),
+        getBarbers().then(barbers => barbers.find(b => b.id === appointment.barberId))
+      ]);
+      
+      const formatDate = (timestamp: Timestamp) => {
+        const date = timestamp.toDate();
+        return date.toLocaleDateString('he-IL', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      };
+      
+      const notificationData = {
+        title: 'ביטול תור',
+        message: `תור בוטל: ${treatment?.name || 'טיפול לא ידוע'} עם ${barber?.name || 'מספר לא ידוע'} בתאריך ${formatDate(appointment.date)}`,
+        type: 'appointment_cancelled' as const,
+        data: {
+          appointmentId,
+          userId: appointment.userId,
+          barberId: appointment.barberId,
+          treatmentId: appointment.treatmentId,
+          date: appointment.date,
+          treatmentName: treatment?.name || 'טיפול לא ידוע',
+          barberName: barber?.name || 'מספר לא ידוע'
+        },
+        createdAt: Timestamp.now(),
+        isRead: false
+      };
+      
+      await addDoc(collection(db, 'adminNotifications'), notificationData);
+    } catch (notificationError) {
+      console.error('Error sending admin notification:', notificationError);
+      // Don't fail the cancellation if notification fails
+    }
+    
+    return { success: true, message: 'התור בוטל בהצלחה' };
+    
+  } catch (error) {
+    console.error('Error cancelling appointment:', error);
+    return { success: false, message: 'שגיאה בביטול התור. נסה שוב מאוחר יותר.' };
+  }
+};
+
 export const updateAppointment = async (appointmentId: string, updates: Partial<Appointment>) => {
   try {
     const docRef = doc(db, 'appointments', appointmentId);
@@ -883,7 +977,7 @@ export const deleteAppointment = async (appointmentId: string) => {
   }
 };
 
-// Admin functions
+// Admin and permission functions
 export const checkIsAdmin = async (uid: string): Promise<boolean> => {
   try {
     const userDoc = await getDoc(doc(db, 'users', uid));
@@ -895,6 +989,122 @@ export const checkIsAdmin = async (uid: string): Promise<boolean> => {
   } catch (error) {
     console.error('Error checking admin status:', error);
     return false;
+  }
+};
+
+export const checkIsBarber = async (uid: string): Promise<boolean> => {
+  try {
+    const userDoc = await getDoc(doc(db, 'users', uid));
+    if (userDoc.exists()) {
+      const userData = userDoc.data() as UserProfile;
+      return userData.isBarber || false;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error checking barber status:', error);
+    return false;
+  }
+};
+
+export const getUserRole = async (uid: string): Promise<string> => {
+  try {
+    const userDoc = await getDoc(doc(db, 'users', uid));
+    if (userDoc.exists()) {
+      const userData = userDoc.data() as UserProfile;
+      if (userData.isAdmin) return 'admin';
+      if (userData.isBarber) return 'barber';
+      return 'customer';
+    }
+    return 'customer';
+  } catch (error) {
+    console.error('Error getting user role:', error);
+    return 'customer';
+  }
+};
+
+export const checkBarberPermission = async (uid: string, permission: string): Promise<boolean> => {
+  try {
+    const userDoc = await getDoc(doc(db, 'users', uid));
+    if (userDoc.exists()) {
+      const userData = userDoc.data() as UserProfile;
+      if (userData.isAdmin) return true; // Admins have all permissions
+      if (userData.permissions && userData.permissions[permission as keyof typeof userData.permissions]) {
+        return userData.permissions[permission as keyof typeof userData.permissions] || false;
+      }
+    }
+    return false;
+  } catch (error) {
+    console.error('Error checking barber permission:', error);
+    return false;
+  }
+};
+
+export const getBarberAppointments = async (barberId: string): Promise<Appointment[]> => {
+  try {
+    const q = query(
+      collection(db, 'appointments'),
+      where('barberId', '==', barberId)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const appointments: Appointment[] = [];
+    
+    querySnapshot.forEach((doc) => {
+      appointments.push({
+        id: doc.id,
+        ...doc.data()
+      } as Appointment);
+    });
+    
+    // Sort by date
+    appointments.sort((a, b) => {
+      if (a.date && b.date) {
+        const aTime = a.date.toMillis ? a.date.toMillis() : new Date(a.date as any).getTime();
+        const bTime = b.date.toMillis ? b.date.toMillis() : new Date(b.date as any).getTime();
+        return aTime - bTime;
+      }
+      return 0;
+    });
+    
+    return appointments;
+  } catch (error) {
+    console.error('Error getting barber appointments:', error);
+    return [];
+  }
+};
+
+export const getBarberStatistics = async (barberId: string): Promise<any> => {
+  try {
+    const appointments = await getBarberAppointments(barberId);
+    const now = new Date();
+    const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    const thisMonthAppointments = appointments.filter(app => {
+      const appDate = app.date.toDate();
+      return appDate >= thisMonth;
+    });
+    
+    const completedAppointments = appointments.filter(app => app.status === 'completed');
+    const thisMonthCompleted = thisMonthAppointments.filter(app => app.status === 'completed');
+    
+    return {
+      totalAppointments: appointments.length,
+      completedAppointments: completedAppointments.length,
+      thisMonthAppointments: thisMonthAppointments.length,
+      thisMonthCompleted: thisMonthCompleted.length,
+      completionRate: appointments.length > 0 ? (completedAppointments.length / appointments.length * 100).toFixed(1) : '0',
+      monthlyCompletionRate: thisMonthAppointments.length > 0 ? (thisMonthCompleted.length / thisMonthAppointments.length * 100).toFixed(1) : '0'
+    };
+  } catch (error) {
+    console.error('Error getting barber statistics:', error);
+    return {
+      totalAppointments: 0,
+      completedAppointments: 0,
+      thisMonthAppointments: 0,
+      thisMonthCompleted: 0,
+      completionRate: '0',
+      monthlyCompletionRate: '0'
+    };
   }
 };
 
@@ -944,6 +1154,7 @@ export const createUserProfileFromAuth = async (email: string): Promise<boolean>
       uid: currentUser.uid,
       email: currentUser.email || '',
       displayName: currentUser.displayName || 'משתמש',
+      firstName: (currentUser.displayName || 'משתמש').split(' ')[0] || 'משתמש',
       phone: currentUser.phoneNumber || '',
       isAdmin: isAdminEmail,
       createdAt: Timestamp.now()
@@ -1829,6 +2040,18 @@ export const updateAvailability = async (availabilityId: string, updates: Partia
   try {
     const docRef = doc(db, 'availability', availabilityId);
     await updateDoc(docRef, updates);
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const createAvailability = async (availabilityData: Omit<BarberAvailability, 'id' | 'createdAt'>) => {
+  try {
+    const docRef = await addDoc(collection(db, 'availability'), {
+      ...availabilityData,
+      createdAt: Timestamp.now()
+    });
+    return docRef.id;
   } catch (error) {
     throw error;
   }

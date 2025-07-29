@@ -1,4 +1,5 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -25,6 +26,7 @@ interface SideMenuProps {
 
 const SideMenu: React.FC<SideMenuProps> = ({ visible, onClose, onNavigate, onNotificationPress }) => {
   const { t, i18n } = useTranslation();
+  const router = useRouter();
   const [showLanguageOptions, setShowLanguageOptions] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
@@ -49,7 +51,19 @@ const SideMenu: React.FC<SideMenuProps> = ({ visible, onClose, onNavigate, onNot
     console.log('Menu item pressed, navigating to:', screen);
     onClose();
     setTimeout(() => {
-      onNavigate(screen);
+      switch (screen) {
+        case 'admin-home':
+          router.replace('/admin-home');
+          break;
+        case 'settings':
+          router.replace('/settings');
+          break;
+        case 'profile':
+          router.replace('/(tabs)/profile');
+          break;
+        default:
+          onNavigate(screen);
+      }
     }, 100);
   };
   

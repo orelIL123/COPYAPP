@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactElement } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet , useColorScheme } from 'react-native';
 import Animated, {
     interpolate,
     useAnimatedRef,
@@ -7,7 +7,6 @@ import Animated, {
     useScrollViewOffset,
 } from 'react-native-reanimated';
 
-import { useColorScheme } from 'react-native';
 import { ThemedView } from './ThemedView';
 import { useBottomTabOverflow } from './ui/TabBarBackground';
 

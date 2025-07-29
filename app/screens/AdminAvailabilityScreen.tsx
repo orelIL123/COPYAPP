@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { collection, doc, getDoc, getDocs, getFirestore, query, setDoc, where, deleteDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Alert,
     Modal,
@@ -59,6 +60,7 @@ const timeSlots = [
 ];
 
 const AdminAvailabilityScreen: React.FC<AdminAvailabilityScreenProps> = ({ onNavigate, onBack }) => {
+  const { t } = useTranslation();
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [selectedBarber, setSelectedBarber] = useState<Barber | null>(null);
   const [loading, setLoading] = useState(true);

@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { doc, getDoc, getFirestore, setDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Dimensions,
     SafeAreaView,
@@ -24,6 +25,7 @@ interface AdminHomeScreenProps {
 }
 
 const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({ onNavigate, onBack }) => {
+  const { t } = useTranslation();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
@@ -40,7 +42,7 @@ const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({ onNavigate, onBack })
         if (!adminStatus) {
           setToast({
             visible: true,
-            message: `אין לך הרשאות מנהל (UID: ${user.uid})`,
+            message: t('admin.no_permission', { uid: user.uid }),
             type: 'error'
           });
           // Give user more time to see the UID and debug
@@ -55,7 +57,7 @@ const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({ onNavigate, onBack })
     return unsubscribe;
   }, []);
 
-  // טען טקסט אודות מה-DB
+  // Load about text from DB
   useEffect(() => {
     const fetchAboutUs = async () => {
       try {
@@ -66,7 +68,7 @@ const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({ onNavigate, onBack })
           setAboutUsText(snap.data().text || '');
         }
       } catch (e) {
-        showToast('שגיאה בטעינת אודות', 'error');
+        showToast(t('admin.about_load_error'), 'error');
       } finally {
         setAboutUsLoading(false);
       }
@@ -84,56 +86,56 @@ const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({ onNavigate, onBack })
 
   const handleInitializeGallery = async () => {
     try {
-      showToast('מאתחל גלריה...', 'success');
+      showToast(t('admin.initializing_gallery'), 'success');
       await initializeGalleryImages();
-      showToast('הגלריה אותחלה בהצלחה!', 'success');
+      showToast(t('admin.gallery_initialized'), 'success');
     } catch (error) {
       console.error('Error initializing gallery:', error);
-      showToast('שגיאה באתחול הגלריה', 'error');
+      showToast(t('admin.gallery_init_error'), 'error');
     }
   };
 
   const handleReplaceGallery = async () => {
     try {
-      showToast('מחליף תמונות...', 'success');
+      showToast(t('admin.replacing_images'), 'success');
       await replaceGalleryPlaceholders();
-      showToast('התמונות הוחלפו בהצלחה!', 'success');
+      showToast(t('admin.images_replaced'), 'success');
     } catch (error) {
       console.error('Error replacing gallery:', error);
-      showToast('שגיאה בהחלפת התמונות', 'error');
+      showToast(t('admin.image_replace_error'), 'error');
     }
   };
 
   const handleResetGallery = async () => {
     try {
-      showToast('מאפס גלריה...', 'success');
+      showToast(t('admin.resetting_gallery'), 'success');
       await resetGalleryWithRealImages();
-      showToast('הגלריה אופסה והתמונות החדשות נוספו!', 'success');
+      showToast(t('admin.gallery_reset'), 'success');
     } catch (error) {
       console.error('Error resetting gallery:', error);
-      showToast('שגיאה באיפוס הגלריה', 'error');
+      showToast(t('admin.gallery_reset_error'), 'error');
     }
   };
 
   const handleListStorage = async () => {
     try {
-      showToast('בודק תמונות ב-Firebase Storage...', 'success');
+      showToast(t('admin.checking_storage'), 'success');
       await listAllStorageImages();
-      showToast('בדוק את הקונסול לראות את התמונות!', 'success');
+      showToast(t('admin.check_console'), 'success');
     } catch (error) {
       console.error('Error listing storage:', error);
-      showToast('שגיאה בבדיקת Storage', 'error');
+      showToast(t('admin.storage_check_error'), 'error');
     }
   };
 
   const handleRestoreFromStorage = async () => {
     try {
-      showToast('משחזר תמונות מ-Firebase Storage...', 'success');
+      showToast(t('admin.restoring_images'), 'success');
       const count = await restoreGalleryFromStorage();
-      showToast(`שוחזרו ${count} תמונות מ-Storage!`, 'success');
+      showToast(t('admin.images_restored', { count }), 'success');
     } catch (error) {
       console.error('Error restoring from storage:', error);
-      showToast('שגיאה בשחזור מ-Storage', 'error');
+      showToast(t('admin.restore_error'), 'error');
     }
   };
 
@@ -142,9 +144,9 @@ const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({ onNavigate, onBack })
     try {
       const db = getFirestore();
       await setDoc(doc(db, 'settings', 'aboutus'), { text: aboutUsText });
-      showToast('הטקסט נשמר בהצלחה!');
+      showToast(t('admin.text_saved'));
     } catch (e) {
-      showToast('שגיאה בשמירת הטקסט', 'error');
+      showToast(t('admin.text_save_error'), 'error');
     } finally {
       setAboutUsLoading(false);
     }
@@ -152,64 +154,64 @@ const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({ onNavigate, onBack })
 
   const adminMenuItems = [
     {
-      title: 'ניהול תורים',
-      subtitle: 'צפה וערוך תורים קיימים',
+      title: t('admin.manage_appointments_title'),
+      subtitle: t('admin.manage_appointments_subtitle'),
       icon: 'calendar',
       screen: 'admin-appointments',
       color: '#007bff'
     },
     {
-      title: 'ניהול טיפולים ומחירים',
-      subtitle: 'הוסף, ערוך ומחק טיפולים',
+      title: t('admin.manage_treatments_title'),
+      subtitle: t('admin.manage_treatments_subtitle'),
       icon: 'cut',
       screen: 'admin-treatments',
       color: '#28a745'
     },
     {
-      title: 'ניהול הצוות',
-      subtitle: 'הוסף ספרים וערוך פרופילים',
+      title: t('admin.manage_team_title'),
+      subtitle: t('admin.manage_team_subtitle'),
       icon: 'people',
       screen: 'admin-team',
       color: '#ffc107'
     },
     {
-      title: 'ניהול הגלריה',
-      subtitle: 'העלה תמונות וערוך תמונות רקע',
+      title: t('admin.manage_gallery_title'),
+      subtitle: t('admin.manage_gallery_subtitle'),
       icon: 'images',
       screen: 'admin-gallery',
       color: '#dc3545'
     },
     {
-      title: 'הגדרות זמינות',
-      subtitle: 'הגדר שעות פעילות לספרים',
+      title: t('admin.availability_settings_title'),
+      subtitle: t('admin.availability_settings_subtitle'),
       icon: 'time',
       screen: 'admin-availability',
       color: '#6f42c1'
     },
     {
-      title: 'סטטיסטיקות עסק',
-      subtitle: 'דשבורד הכנסות, לקוחות וטיפולים',
+      title: t('admin.business_stats_title'),
+      subtitle: t('admin.business_stats_subtitle'),
       icon: 'analytics',
       screen: 'admin-statistics',
       color: '#17a2b8'
     },
     {
-      title: 'ניהול התראות',
-      subtitle: 'שלח הודעות למשתמשים',
+      title: t('admin.manage_notifications_title'),
+      subtitle: t('admin.manage_notifications_subtitle'),
       icon: 'notifications',
       screen: 'admin-notifications',
       color: '#6c757d'
     },
     {
-      title: 'הגדרות מנהל',
-      subtitle: 'עריכת הודעות ברכה, טקסטים ושליחת הודעות',
+      title: t('admin.admin_settings_title'),
+      subtitle: t('admin.admin_settings_subtitle'),
       icon: 'settings',
       screen: 'admin-settings',
       color: '#fd7e14'
     },
     {
-      title: 'צפה כלקוח',
-      subtitle: 'צפה באפליקציה כמשתמש רגיל',
+      title: t('admin.view_as_client_title'),
+      subtitle: t('admin.view_as_client_subtitle'),
       icon: 'eye',
       screen: 'home',
       color: '#fd7e14'
@@ -220,7 +222,7 @@ const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({ onNavigate, onBack })
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>בודק הרשאות...</Text>
+          <Text style={styles.loadingText}>{t('admin.checking_permissions')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -231,27 +233,27 @@ const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({ onNavigate, onBack })
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Ionicons name="warning" size={64} color="#dc3545" />
-          <Text style={styles.errorText}>אין לך הרשאות מנהל</Text>
+          <Text style={styles.errorText}>{t('admin.no_admin_permissions')}</Text>
           <Text style={styles.debugText}>UID: {currentUserId}</Text>
           <TouchableOpacity 
             style={[styles.backButton, { backgroundColor: '#28a745', marginBottom: 12 }]} 
             onPress={async () => {
               try {
                 await makeCurrentUserAdmin();
-                showToast('נוצרו הרשאות מנהל! רענן את האפליקציה', 'success');
+                showToast(t('admin.admin_permissions_created'), 'success');
                 // Force refresh by reloading the component
                 setTimeout(() => {
                   onNavigate('admin-home');
                 }, 1000);
               } catch (error) {
-                showToast('שגיאה ביצירת הרשאות מנהל', 'error');
+                showToast(t('admin.admin_permissions_error'), 'error');
               }
             }}
           >
-            <Text style={styles.backButtonText}>הפוך אותי למנהל (DEBUG)</Text>
+            <Text style={styles.backButtonText}>{t('admin.make_me_admin_debug')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.backButton} onPress={() => onNavigate('home')}>
-            <Text style={styles.backButtonText}>חזור לעמוד הבית</Text>
+            <Text style={styles.backButtonText}>{t('admin.back_to_home')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -261,7 +263,7 @@ const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({ onNavigate, onBack })
   return (
     <SafeAreaView style={styles.container}>
       <TopNav 
-        title="פאנל מנהל"
+        title={t('admin.admin_panel')}
         onBellPress={() => {}}
         onMenuPress={() => {}}
         showBackButton={true}
@@ -276,18 +278,18 @@ const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({ onNavigate, onBack })
               colors={['#000000', '#333333']}
               style={styles.welcomeGradient}
             >
-              <Text style={styles.welcomeTitle}>ברוך הבא למנהל המערכת</Text>
-              <Text style={styles.welcomeSubtitle}>נהל את הברברשופ שלך בקלות</Text>
+              <Text style={styles.welcomeTitle}>{t('admin.welcome_title')}</Text>
+              <Text style={styles.welcomeSubtitle}>{t('admin.welcome_subtitle')}</Text>
             </LinearGradient>
           </View>
 
           {/* System Status */}
           <View style={styles.systemSection}>
-            <Text style={styles.systemTitle}>מצב המערכת</Text>
+            <Text style={styles.systemTitle}>{t('admin.system_status')}</Text>
             <View style={styles.systemItem}>
               <View style={styles.systemInfo}>
                 <Text style={styles.systemLabel}>Firestore Database</Text>
-                <Text style={styles.systemStatus}>פעיל</Text>
+                <Text style={styles.systemStatus}>{t('admin.active')}</Text>
               </View>
               <View style={[styles.statusIndicator, styles.statusActive]} />
             </View>
@@ -297,7 +299,7 @@ const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({ onNavigate, onBack })
               onPress={handleInitializeGallery}
             >
               <Ionicons name="images" size={20} color="#fff" />
-              <Text style={styles.initButtonText}>אתחל גלריה עם תמונות דמה</Text>
+              <Text style={styles.initButtonText}>{t('admin.init_gallery_dummy')}</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
@@ -305,7 +307,7 @@ const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({ onNavigate, onBack })
               onPress={handleReplaceGallery}
             >
               <Ionicons name="refresh" size={20} color="#fff" />
-              <Text style={styles.initButtonText}>החלף תמונות אפורות בתמונות אמיתיות</Text>
+              <Text style={styles.initButtonText}>{t('admin.replace_gray_images')}</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
@@ -313,7 +315,7 @@ const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({ onNavigate, onBack })
               onPress={handleResetGallery}
             >
               <Ionicons name="trash" size={20} color="#fff" />
-              <Text style={styles.initButtonText}>מחק הכל וצור גלריה חדשה</Text>
+              <Text style={styles.initButtonText}>{t('admin.delete_all_create_new')}</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
@@ -321,7 +323,7 @@ const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({ onNavigate, onBack })
               onPress={handleListStorage}
             >
               <Ionicons name="folder" size={20} color="#fff" />
-              <Text style={styles.initButtonText}>בדוק מה יש ב-Firebase Storage</Text>
+              <Text style={styles.initButtonText}>{t('admin.check_firebase_storage')}</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
@@ -329,23 +331,23 @@ const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({ onNavigate, onBack })
               onPress={handleRestoreFromStorage}
             >
               <Ionicons name="download" size={20} color="#fff" />
-              <Text style={styles.initButtonText}>שחזר התמונות שלי מ-Storage</Text>
+              <Text style={styles.initButtonText}>{t('admin.restore_my_images')}</Text>
             </TouchableOpacity>
           </View>
 
-          {/* עריכת טקסט הכירו אותנו */}
+          {/* Edit about us text */}
           <View style={{margin: 16, backgroundColor: '#222', borderRadius: 12, padding: 16}}>
-            <Text style={{color: '#fff', fontWeight: 'bold', fontSize: 18, marginBottom: 8}}>ערוך טקסט הכירו אותנו</Text>
+            <Text style={{color: '#fff', fontWeight: 'bold', fontSize: 18, marginBottom: 8}}>{t('admin.edit_about_text')}</Text>
             <TextInput
               value={aboutUsText}
               onChangeText={setAboutUsText}
-              placeholder="הכנס טקסט הכירו אותנו..."
+              placeholder={t('admin.enter_about_text')}
               style={{backgroundColor: '#333', color: '#fff', borderRadius: 8, padding: 8, minHeight: 80, marginBottom: 8}}
               placeholderTextColor="#aaa"
               multiline
             />
             <TouchableOpacity style={{backgroundColor: '#007bff', borderRadius: 8, padding: 12, marginTop: 8}} onPress={handleSaveAboutUs} disabled={aboutUsLoading}>
-              <Text style={{color: 'white', fontWeight: 'bold', textAlign: 'center'}}>{aboutUsLoading ? 'שומר...' : 'שמור טקסט'}</Text>
+              <Text style={{color: 'white', fontWeight: 'bold', textAlign: 'center'}}>{aboutUsLoading ? t('common.saving') : t('admin.save_text')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -357,9 +359,9 @@ const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({ onNavigate, onBack })
                 style={styles.menuItem}
                 onPress={() => {
                   if (item.screen === 'home') {
-                    showToast('עובר לתצוגת לקוח');
+                    showToast(t('admin.switching_to_client_view'));
                   } else {
-                    showToast(`פותח ${item.title}`);
+                    showToast(t('admin.opening_screen', { title: item.title }));
                   }
                   onNavigate(item.screen);
                 }}
@@ -378,19 +380,19 @@ const AdminHomeScreen: React.FC<AdminHomeScreenProps> = ({ onNavigate, onBack })
 
           {/* Quick Stats */}
           <View style={styles.statsSection}>
-            <Text style={styles.sectionTitle}>סטטיסטיקות מהירות</Text>
+            <Text style={styles.sectionTitle}>{t('admin.quick_stats')}</Text>
             <View style={styles.statsGrid}>
               <View style={styles.statCard}>
                 <Text style={styles.statNumber}>12</Text>
-                <Text style={styles.statLabel}>תורים היום</Text>
+                <Text style={styles.statLabel}>{t('admin.appointments_today')}</Text>
               </View>
               <View style={styles.statCard}>
                 <Text style={styles.statNumber}>3</Text>
-                <Text style={styles.statLabel}>ספרים פעילים</Text>
+                <Text style={styles.statLabel}>{t('admin.active_barbers')}</Text>
               </View>
               <View style={styles.statCard}>
                 <Text style={styles.statNumber}>8</Text>
-                <Text style={styles.statLabel}>טיפולים</Text>
+                <Text style={styles.statLabel}>{t('admin.treatments')}</Text>
               </View>
             </View>
           </View>

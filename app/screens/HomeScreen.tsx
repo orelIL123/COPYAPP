@@ -5,19 +5,19 @@ import { collection, doc, getDoc, getDocs, getFirestore, query, where } from 'fi
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    Alert,
-    Animated,
-    Dimensions,
-    Image,
-    ImageBackground,
-    InteractionManager,
-    Linking,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Alert,
+  Animated,
+  Dimensions,
+  Image,
+  ImageBackground,
+  InteractionManager,
+  Linking,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { auth } from '../../config/firebase';
 import SideMenu from '../components/SideMenu';
@@ -251,7 +251,7 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
         return orderA - orderB;
       });
       
-      // Get images from settings
+      // Get images from settings first (admin managed)
       let atmosphereImage = '';
       let aboutUsImage = '';
       let aboutUsBottomImage = '';
@@ -264,17 +264,53 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
         aboutUsBottomImage = settingsData.aboutUsBottomImage || '';
       }
       
-      // If no aboutUsBottomImage in settings, try to get from Storage path
+      // If no aboutUsImage from settings, look for aboutus.png/jpg in Firebase Storage folder
+      if (!aboutUsImage) {
+        try {
+          const { getStorageImages } = await import('../../services/firebase');
+          const aboutusImages = await getStorageImages('aboutus');
+          
+          // Look for aboutus.png or aboutus.jpg specifically
+          const aboutUsFile = aboutusImages.find(url => 
+            url.toLowerCase().includes('aboutus.png') || 
+            url.toLowerCase().includes('aboutus.jpg')
+          );
+          
+          if (aboutUsFile) {
+            aboutUsImage = aboutUsFile;
+          } else if (aboutusImages.length > 0) {
+            // Fallback to first image in aboutus folder
+            aboutUsImage = aboutusImages[0];
+          }
+        } catch (storageError) {
+          console.log('Could not fetch from aboutus storage folder:', storageError);
+        }
+      }
+      
+      // If no aboutUsBottomImage in settings, try to get from Storage path or gallery collection
       if (!aboutUsBottomImage) {
-        // You would typically get this from Firebase Storage directly
-        // For now, we'll check if there's an aboutus folder image
-        const aboutUsQuery = query(collection(db, 'gallery'), 
-          where('path', '==', 'aboutus/ABOUTUS'),
-          where('isActive', '==', true)
-        );
-        const aboutUsSnapshot = await getDocs(aboutUsQuery);
-        if (!aboutUsSnapshot.empty) {
-          aboutUsBottomImage = aboutUsSnapshot.docs[0].data().imageUrl || '';
+        // First try to get from aboutus folder in storage (excluding the main aboutus image)
+        try {
+          const { getStorageImages } = await import('../../services/firebase');
+          const aboutusImages = await getStorageImages('aboutus');
+          const remainingImages = aboutusImages.filter(url => url !== aboutUsImage);
+          if (remainingImages.length > 0) {
+            aboutUsBottomImage = remainingImages[0];
+          }
+        } catch (storageError) {
+          console.log('Could not fetch additional aboutus images from storage:', storageError);
+        }
+        
+        // Fallback to gallery collection check
+        if (!aboutUsBottomImage) {
+          const aboutUsQuery = query(collection(db, 'gallery'), 
+            where('path', '==', 'aboutus/ABOUTUS'),
+            where('isActive', '==', true)
+          );
+          const aboutUsSnapshot = await getDocs(aboutUsQuery);
+          if (!aboutUsSnapshot.empty) {
+            aboutUsBottomImage = aboutUsSnapshot.docs[0].data().imageUrl || '';
+          }
         }
       }
       
@@ -317,6 +353,33 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
 
   const handleTeamPress = () => {
     onNavigate('team');
+  };
+
+  const handleCancelAppointment = async (appointmentId: string) => {
+    try {
+      const { cancelAppointment } = await import('../../services/firebase');
+      const result = await cancelAppointment(appointmentId, auth.currentUser?.uid || '');
+      
+      Alert.alert(
+        result.success ? 'הצלחה' : 'שגיאה',
+        result.message,
+        [{ text: 'אישור', style: 'default' }]
+      );
+      
+      if (result.success) {
+        // Refresh appointments list
+        setTimeout(() => {
+          handleMyAppointmentsPress();
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Error cancelling appointment:', error);
+      Alert.alert(
+        'שגיאה',
+        'שגיאה בביטול התור. נסה שוב מאוחר יותר.',
+        [{ text: 'סגור', style: 'default' }]
+      );
+    }
   };
 
   const handleMyAppointmentsPress = async () => {
@@ -389,6 +452,15 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
         }
       };
 
+      // Check if appointment can be cancelled (2 hours before)
+      const canCancelAppointment = (appointmentDate: any) => {
+        if (!appointmentDate) return false;
+        const now = new Date();
+        const date = appointmentDate.toDate ? appointmentDate.toDate() : new Date(appointmentDate);
+        const timeDifferenceHours = (date.getTime() - now.getTime()) / (1000 * 60 * 60);
+        return timeDifferenceHours >= 2;
+      };
+
       // Get treatment and barber names for each appointment
       const appointmentDetails = await Promise.all(
         upcomingAppointments.map(async (apt) => {
@@ -405,37 +477,125 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
             return {
               ...apt,
               treatmentName: treatment?.name || 'טיפול לא ידוע',
-              barberName: barber?.name || 'מספר לא ידוע'
+              barberName: barber?.name || 'מספר לא ידוע',
+              canCancel: canCancelAppointment(apt.date)
             };
           } catch (error) {
             return {
               ...apt,
               treatmentName: 'טיפול לא ידוע',
-              barberName: 'מספר לא ידוע'
+              barberName: 'מספר לא ידוע',
+              canCancel: canCancelAppointment(apt.date)
             };
           }
         })
       );
 
-      const appointmentList = appointmentDetails.map(apt => 
-        `📅 ${formatDate(apt.date)}\n📋 ${apt.treatmentName}\n👤 ${apt.barberName}\n✅ ${getStatusText(apt.status)}`
-      ).join('\n\n');
-
-      // Show appointments in a styled alert
-      Alert.alert(
-        '📅 התורים הקרובים שלי',
-        appointmentList,
-        [
+      // If only one appointment, show it with cancel option
+      if (appointmentDetails.length === 1) {
+        const apt = appointmentDetails[0];
+        const appointmentInfo = `📅 ${formatDate(apt.date)}\n📋 ${apt.treatmentName}\n👤 ${apt.barberName}\n✅ ${getStatusText(apt.status)}`;
+        
+        const alertButtons = [
           { 
             text: '📋 הזמן תור חדש', 
             onPress: () => onNavigate('booking')
-          },
-          { 
-            text: '❌ סגור', 
-            style: 'cancel'
           }
-        ]
-      );
+        ];
+
+        if (apt.canCancel) {
+          alertButtons.unshift({
+            text: '🚫 בטל תור',
+            style: 'destructive' as const,
+            onPress: () => {
+              Alert.alert(
+                'בטל תור',
+                'האם אתה בטוח שברצונך לבטל את התור?',
+                [
+                  { text: 'לא', style: 'cancel' },
+                  { 
+                    text: 'כן, בטל', 
+                    style: 'destructive',
+                    onPress: () => handleCancelAppointment(apt.id)
+                  }
+                ]
+              );
+            }
+          });
+        }
+
+        alertButtons.push({ 
+          text: '❌ סגור', 
+          style: 'cancel'
+        });
+
+        Alert.alert(
+          '📅 התור הקרוב שלי',
+          appointmentInfo,
+          alertButtons
+        );
+      } else {
+        // Multiple appointments - show list
+        const appointmentList = appointmentDetails.map((apt, index) => 
+          `${index + 1}. 📅 ${formatDate(apt.date)}\n📋 ${apt.treatmentName}\n👤 ${apt.barberName}\n✅ ${getStatusText(apt.status)}${apt.canCancel ? '\n🚫 ניתן לביטול' : '\n⏰ לא ניתן לביטול (פחות מ-2 שעות)'}`
+        ).join('\n\n');
+
+        Alert.alert(
+          '📅 התורים הקרובים שלי',
+          appointmentList,
+          [
+            { 
+              text: '🚫 בטל תור', 
+              onPress: () => {
+                // Show list of cancellable appointments
+                const cancellableAppointments = appointmentDetails.filter(apt => apt.canCancel);
+                if (cancellableAppointments.length === 0) {
+                  Alert.alert(
+                    'ביטול תור',
+                    'אין תורים שניתנים לביטול (כל התורים פחות מ-2 שעות)',
+                    [{ text: 'סגור', style: 'default' }]
+                  );
+                  return;
+                }
+
+                const cancelOptions = cancellableAppointments.map((apt) => ({
+                  text: `${formatDate(apt.date)} - ${apt.treatmentName}`,
+                  onPress: () => {
+                    Alert.alert(
+                      'בטל תור',
+                      `האם אתה בטוח שברצונך לבטל את התור ב-${formatDate(apt.date)}?`,
+                      [
+                        { text: 'לא', style: 'cancel' },
+                        { 
+                          text: 'כן, בטל', 
+                          style: 'destructive',
+                          onPress: () => handleCancelAppointment(apt.id)
+                        }
+                      ]
+                    );
+                  }
+                }));
+
+                cancelOptions.push({ text: 'ביטול', style: 'cancel' });
+
+                Alert.alert(
+                  'בחר תור לביטול',
+                  'איזה תור תרצה לבטל?',
+                  cancelOptions
+                );
+              }
+            },
+            { 
+              text: '📋 הזמן תור חדש', 
+              onPress: () => onNavigate('booking')
+            },
+            { 
+              text: '❌ סגור', 
+              style: 'cancel'
+            }
+          ]
+        );
+      }
     } catch (error) {
       console.error('Error fetching appointments:', error);
       Alert.alert(
@@ -651,7 +811,7 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
               />
               <View style={styles.contactItem}>
                 <Ionicons name="call" size={20} color="#3b82f6" />
-                <Text style={styles.contactText}>050-1234567</Text>
+                <Text style={styles.contactText}>0548353232</Text>
               </View>
               <View style={styles.contactItem}>
                 <Ionicons name="location" size={20} color="#3b82f6" />
@@ -659,7 +819,7 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
               </View>
               <View style={styles.contactItem}>
                 <Ionicons name="time" size={20} color="#3b82f6" />
-                <Text style={styles.contactText}>א'-ה' 9:00-20:00, ו' 9:00-15:00</Text>
+                <Text style={styles.contactText}>א&apos;-ה&apos; 9:00-20:00, ו&apos; 9:00-15:00</Text>
               </View>
             </View>
           </Animated.View>
@@ -683,18 +843,62 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
       {showTerms && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>תנאי שימוש</Text>
+            <Text style={styles.modalTitle}>תנאי שימוש ומדיניות פרטיות</Text>
             <ScrollView style={styles.modalScrollView}>
               <Text style={styles.modalText}>
-                ברוכים הבאים ל-Barbers Bar. השימוש באפליקציה כפוף לתנאים הבאים:{'\n\n'}
+                <Text style={styles.sectionTitle}>תנאי שימוש - Barbers Bar{'\n\n'}</Text>
                 
-                1. השירות מיועד לקביעת תורים והכרת הצוות והשירותים{'\n'}
-                2. יש לספק מידע מדויק בעת קביעת התור{'\n'}
-                3. ביטול תור יש לבצע לפחות 24 שעות מראש{'\n'}
-                4. המספרה שומרת את הזכות לשנות את התנאים{'\n'}
-                5. המידע האישי מוגן ולא יועבר לצדדים שלישיים{'\n\n'}
+                <Text style={styles.subsectionTitle}>1. קבלת השירות{'\n'}</Text>
+                • השירות מיועד לקביעת תורים במספרה Barbers Bar{'\n'}
+                • יש לספק מידע מדויק ומלא בעת קביעת התור{'\n'}
+                • המספרה שומרת לעצמה את הזכות לסרב לתת שירות במקרים חריגים{'\n\n'}
                 
-                לפרטים נוספים ניתן לפנות למספרה ישירות.
+                <Text style={styles.subsectionTitle}>2. ביטול תורים{'\n'}</Text>
+                • ביטול תור יש לבצע לפחות 2 שעות לפני מועד התור{'\n'}
+                • ביטול מאוחר יותר מ-2 שעות עלול לחייב תשלום{'\n'}
+                • במקרה של איחור של יותר מ-15 דקות, התור עלול להתבטל{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>3. תשלומים{'\n'}</Text>
+                • התשלום מתבצע במספרה לאחר קבלת השירות{'\n'}
+                • המחירים כפי שמופיעים באפליקציה{'\n'}
+                • המספרה שומרת לעצמה את הזכות לשנות מחירים{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>4. אחריות{'\n'}</Text>
+                • המספרה מתחייבת לאיכות השירות{'\n'}
+                • במקרה של אי שביעות רצון, יש לפנות למנהל המספרה{'\n'}
+                • המספרה לא אחראית לנזקים עקיפים{'\n\n'}
+                
+                <Text style={styles.sectionTitle}>מדיניות פרטיות{'\n\n'}</Text>
+                
+                <Text style={styles.subsectionTitle}>1. איסוף מידע{'\n'}</Text>
+                • אנו אוספים: שם מלא, מספר טלפון, פרטי תורים{'\n'}
+                • המידע נאסף לצורך מתן השירות בלבד{'\n'}
+                • לא נאסוף מידע מיותר{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>2. שימוש במידע{'\n'}</Text>
+                • המידע משמש לקביעת תורים ותקשורת{'\n'}
+                • לא נשתף את המידע עם צדדים שלישיים{'\n'}
+                • לא נשלח הודעות פרסומיות ללא אישור{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>3. אבטחה{'\n'}</Text>
+                • המידע מאוחסן באופן מאובטח{'\n'}
+                • גישה למידע מוגבלת לעובדי המספרה בלבד{'\n'}
+                • נעדכן את האבטחה לפי הצורך{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>4. זכויות המשתמש{'\n'}</Text>
+                • הזכות לבקש עותק מהמידע שלך{'\n'}
+                • הזכות לבקש מחיקה של המידע{'\n'}
+                • הזכות לעדכן את המידע{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>5. עדכונים{'\n'}</Text>
+                • מדיניות זו עשויה להתעדכן{'\n'}
+                • עדכונים יפורסמו באפליקציה{'\n'}
+                • המשך השימוש מהווה הסכמה לתנאים המעודכנים{'\n\n'}
+                
+                <Text style={styles.contactInfo}>
+                  לשאלות או בקשות: רפיח ים 13, טלפון: 054-2280222{'\n'}
+                  מייל: info@barbersbar.co.il
+                </Text>
               </Text>
             </ScrollView>
             <TouchableOpacity 
@@ -1121,6 +1325,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginTop: 15,
+    marginBottom: 10,
+  },
+  subsectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  contactInfo: {
+    fontSize: 14,
+    color: '#666666',
+    textAlign: 'center',
+    marginTop: 15,
   },
 });
 

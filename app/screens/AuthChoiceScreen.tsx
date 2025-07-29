@@ -1,8 +1,11 @@
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
     Dimensions,
     Image,
+    Modal,
     SafeAreaView,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -13,9 +16,10 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export default function AuthChoiceScreen() {
   const router = useRouter();
+  const [showTerms, setShowTerms] = useState(false);
 
   const handleLogin = () => {
-    router.push('/screens/AuthPhoneScreen');
+    router.push('/screens/AuthPhoneScreen?mode=login');
   };
 
   const handleRegister = () => {
@@ -48,12 +52,89 @@ export default function AuthChoiceScreen() {
 
           <Text style={styles.termsText}>
             בהמשך השימוש באפליקציה, אתה מסכים ל{' '}
-            <Text style={styles.termsLink}>תנאי השימוש</Text>
+            <Text style={styles.termsLink} onPress={() => setShowTerms(true)}>תנאי השימוש</Text>
             {' '}ול{' '}
-            <Text style={styles.termsLink}>מדיניות הפרטיות</Text>
+            <Text style={styles.termsLink} onPress={() => setShowTerms(true)}>מדיניות הפרטיות</Text>
           </Text>
         </View>
     </View>
+
+      {/* Terms Modal */}
+      <Modal
+        visible={showTerms}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowTerms(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>תנאי שימוש ומדיניות פרטיות</Text>
+            <ScrollView style={styles.modalScrollView}>
+              <Text style={styles.modalText}>
+                <Text style={styles.sectionTitle}>תנאי שימוש - Barbers Bar{'\n\n'}</Text>
+                
+                <Text style={styles.subsectionTitle}>1. קבלת השירות{'\n'}</Text>
+                • השירות מיועד לקביעת תורים במספרה Barbers Bar{'\n'}
+                • יש לספק מידע מדויק ומלא בעת קביעת התור{'\n'}
+                • המספרה שומרת לעצמה את הזכות לסרב לתת שירות במקרים חריגים{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>2. ביטול תורים{'\n'}</Text>
+                • ביטול תור יש לבצע לפחות 2 שעות לפני מועד התור{'\n'}
+                • ביטול מאוחר יותר מ-2 שעות עלול לחייב תשלום{'\n'}
+                • במקרה של איחור של יותר מ-15 דקות, התור עלול להתבטל{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>3. תשלומים{'\n'}</Text>
+                • התשלום מתבצע במספרה לאחר קבלת השירות{'\n'}
+                • המחירים כפי שמופיעים באפליקציה{'\n'}
+                • המספרה שומרת לעצמה את הזכות לשנות מחירים{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>4. אחריות{'\n'}</Text>
+                • המספרה מתחייבת לאיכות השירות{'\n'}
+                • במקרה של אי שביעות רצון, יש לפנות למנהל המספרה{'\n'}
+                • המספרה לא אחראית לנזקים עקיפים{'\n\n'}
+                
+                <Text style={styles.sectionTitle}>מדיניות פרטיות{'\n\n'}</Text>
+                
+                <Text style={styles.subsectionTitle}>1. איסוף מידע{'\n'}</Text>
+                • אנו אוספים: שם מלא, מספר טלפון, פרטי תורים{'\n'}
+                • המידע נאסף לצורך מתן השירות בלבד{'\n'}
+                • לא נאסוף מידע מיותר{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>2. שימוש במידע{'\n'}</Text>
+                • המידע משמש לקביעת תורים ותקשורת{'\n'}
+                • לא נשתף את המידע עם צדדים שלישיים{'\n'}
+                • לא נשלח הודעות פרסומיות ללא אישור{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>3. אבטחה{'\n'}</Text>
+                • המידע מאוחסן באופן מאובטח{'\n'}
+                • גישה למידע מוגבלת לעובדי המספרה בלבד{'\n'}
+                • נעדכן את האבטחה לפי הצורך{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>4. זכויות המשתמש{'\n'}</Text>
+                • הזכות לבקש עותק מהמידע שלך{'\n'}
+                • הזכות לבקש מחיקה של המידע{'\n'}
+                • הזכות לעדכן את המידע{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>5. עדכונים{'\n'}</Text>
+                • מדיניות זו עשויה להתעדכן{'\n'}
+                • עדכונים יפורסמו באפליקציה{'\n'}
+                • המשך השימוש מהווה הסכמה לתנאים המעודכנים{'\n\n'}
+                
+                <Text style={styles.contactInfo}>
+                  לשאלות או בקשות: רפיח ים 13, טלפון: 054-2280222{'\n'}
+                  מייל: info@barbersbar.co.il
+                </Text>
+              </Text>
+            </ScrollView>
+            <TouchableOpacity 
+              style={styles.modalCloseButton} 
+              onPress={() => setShowTerms(false)}
+            >
+              <Text style={styles.modalCloseText}>סגור</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -140,5 +221,68 @@ const styles = StyleSheet.create({
   termsLink: {
     color: '#3b82f6',
     textDecorationLine: 'underline',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 24,
+    width: '90%',
+    maxHeight: '80%',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalScrollView: {
+    width: '100%',
+    flex: 1,
+  },
+  modalText: {
+    fontSize: 16,
+    color: '#333333',
+    lineHeight: 24,
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginBottom: 10,
+  },
+  subsectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#3b82f6',
+    marginBottom: 5,
+  },
+  contactInfo: {
+    fontSize: 14,
+    color: '#666666',
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  modalCloseButton: {
+    backgroundColor: '#3b82f6',
+    height: 50,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    marginTop: 20,
+  },
+  modalCloseText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
   },
 }); 

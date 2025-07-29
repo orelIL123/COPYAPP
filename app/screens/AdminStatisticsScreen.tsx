@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Dimensions,
     SafeAreaView,
@@ -37,11 +38,12 @@ interface StatisticsData {
   pendingAppointments: number;
   monthlyRevenue: number;
   weeklyRevenue: number;
-  popularTreatments: Array<{ name: string; count: number; revenue: number }>;
-  barberStats: Array<{ name: string; appointments: number; revenue: number }>;
+  popularTreatments: { name: string; count: number; revenue: number }[];
+  barberStats: { name: string; appointments: number; revenue: number }[];
 }
 
 const AdminStatisticsScreen: React.FC<AdminStatisticsScreenProps> = ({ onNavigate, onBack }) => {
+  const { t } = useTranslation();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<StatisticsData>({
@@ -277,7 +279,7 @@ const AdminStatisticsScreen: React.FC<AdminStatisticsScreenProps> = ({ onNavigat
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>טוען סטטיסטיקות...</Text>
+          <Text style={styles.loadingText}>{t('admin.loading_statistics')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -288,9 +290,9 @@ const AdminStatisticsScreen: React.FC<AdminStatisticsScreenProps> = ({ onNavigat
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Ionicons name="warning" size={64} color="#dc3545" />
-          <Text style={styles.errorText}>אין לך הרשאות מנהל</Text>
+          <Text style={styles.errorText}>{t('admin.no_admin_permissions')}</Text>
           <TouchableOpacity style={styles.backButton} onPress={() => onNavigate('home')}>
-            <Text style={styles.backButtonText}>חזור לעמוד הבית</Text>
+            <Text style={styles.backButtonText}>{t('admin.back_to_home')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -300,7 +302,7 @@ const AdminStatisticsScreen: React.FC<AdminStatisticsScreenProps> = ({ onNavigat
   return (
     <SafeAreaView style={styles.container}>
       <TopNav 
-        title="סטטיסטיקות עסק"
+        title={t('admin.business_statistics')}
         onBellPress={() => {}}
         onMenuPress={() => {}}
         showBackButton={true}
@@ -315,40 +317,40 @@ const AdminStatisticsScreen: React.FC<AdminStatisticsScreenProps> = ({ onNavigat
               colors={['#17a2b8', '#138496']}
               style={styles.headerGradient}
             >
-              <Text style={styles.headerTitle}>דשבורד עסקי</Text>
-              <Text style={styles.headerSubtitle}>סטטיסטיקות מפורטות על העסק שלך</Text>
+              <Text style={styles.headerTitle}>{t('admin.business_dashboard')}</Text>
+              <Text style={styles.headerSubtitle}>{t('admin.detailed_business_stats')}</Text>
             </LinearGradient>
           </View>
 
           {/* Key Metrics */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>מדדים עיקריים</Text>
+            <Text style={styles.sectionTitle}>{t('admin.key_metrics')}</Text>
             <View style={styles.statsGrid}>
               <StatCard
-                title="הכנסות כוללות"
+                title={t('admin.total_revenue')}
                 value={formatCurrency(stats.totalRevenue)}
-                subtitle="כל הזמנים"
+                subtitle={t('admin.all_time')}
                 color="#28a745"
                 icon="cash"
               />
               <StatCard
-                title="לקוחות החודש"
+                title={t('admin.customers_this_month')}
                 value={stats.totalCustomers.toString()}
-                subtitle="לקוחות מרוצים"
+                subtitle={t('admin.satisfied_customers')}
                 color="#007bff"
                 icon="people"
               />
               <StatCard
-                title="תורים הושלמו"
+                title={t('admin.completed_appointments')}
                 value={stats.completedAppointments.toString()}
-                subtitle="תורים מוצלחים"
+                subtitle={t('admin.successful_appointments')}
                 color="#ffc107"
                 icon="checkmark-circle"
               />
               <StatCard
-                title="תורים ממתינים"
+                title={t('admin.pending_appointments')}
                 value={stats.pendingAppointments.toString()}
-                subtitle="תורים בהמתנה"
+                subtitle={t('admin.waiting_appointments')}
                 color="#dc3545"
                 icon="time"
               />
@@ -357,14 +359,14 @@ const AdminStatisticsScreen: React.FC<AdminStatisticsScreenProps> = ({ onNavigat
 
           {/* Revenue Breakdown */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>הכנסות לפי תקופה</Text>
+            <Text style={styles.sectionTitle}>{t('admin.revenue_by_period')}</Text>
             <View style={styles.revenueGrid}>
               <View style={styles.revenueCard}>
-                <Text style={styles.revenueLabel}>הכנסות השבוע</Text>
+                <Text style={styles.revenueLabel}>{t('admin.weekly_revenue')}</Text>
                 <Text style={styles.revenueValue}>{formatCurrency(stats.weeklyRevenue)}</Text>
               </View>
               <View style={styles.revenueCard}>
-                <Text style={styles.revenueLabel}>הכנסות החודש</Text>
+                <Text style={styles.revenueLabel}>{t('admin.monthly_revenue')}</Text>
                 <Text style={styles.revenueValue}>{formatCurrency(stats.monthlyRevenue)}</Text>
               </View>
             </View>
@@ -372,12 +374,12 @@ const AdminStatisticsScreen: React.FC<AdminStatisticsScreenProps> = ({ onNavigat
 
           {/* Popular Treatments */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>טיפולים פופולריים</Text>
+            <Text style={styles.sectionTitle}>{t('admin.popular_treatments')}</Text>
             {stats.popularTreatments.map((treatment, index) => (
               <View key={index} style={styles.treatmentRow}>
                 <View style={styles.treatmentInfo}>
                   <Text style={styles.treatmentName}>{treatment.name}</Text>
-                  <Text style={styles.treatmentCount}>{treatment.count} תורים</Text>
+                  <Text style={styles.treatmentCount}>{t('admin.appointments_count', { count: treatment.count })}</Text>
                 </View>
                 <Text style={styles.treatmentRevenue}>{formatCurrency(treatment.revenue)}</Text>
               </View>
@@ -386,12 +388,12 @@ const AdminStatisticsScreen: React.FC<AdminStatisticsScreenProps> = ({ onNavigat
 
           {/* Barber Performance */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>ביצועי הספרים</Text>
+            <Text style={styles.sectionTitle}>{t('admin.barber_performance')}</Text>
             {stats.barberStats.map((barber, index) => (
               <View key={index} style={styles.barberRow}>
                 <View style={styles.barberInfo}>
                   <Text style={styles.barberName}>{barber.name}</Text>
-                  <Text style={styles.barberAppointments}>{barber.appointments} תורים</Text>
+                  <Text style={styles.barberAppointments}>{t('admin.appointments_count', { count: barber.appointments })}</Text>
                 </View>
                 <Text style={styles.barberRevenue}>{formatCurrency(barber.revenue)}</Text>
               </View>
@@ -402,12 +404,12 @@ const AdminStatisticsScreen: React.FC<AdminStatisticsScreenProps> = ({ onNavigat
           <View style={styles.refreshSection}>
             <TouchableOpacity style={styles.refreshButton} onPress={loadStatistics}>
               <Ionicons name="refresh" size={20} color="#fff" />
-              <Text style={styles.refreshButtonText}>רענן נתונים</Text>
+              <Text style={styles.refreshButtonText}>{t('admin.refresh_data')}</Text>
             </TouchableOpacity>
             
             <TouchableOpacity style={styles.checkButton} onPress={checkAndCompleteAppointments}>
               <Ionicons name="checkmark-circle" size={20} color="#fff" />
-              <Text style={styles.checkButtonText}>בדוק השלמת תורים</Text>
+              <Text style={styles.checkButtonText}>{t('admin.check_appointment_completion')}</Text>
             </TouchableOpacity>
           </View>
         </View>

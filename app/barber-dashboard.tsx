@@ -1,23 +1,24 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet } from 'react-native';
-import SettingsScreen from '../screens/SettingsScreen';
+import React from 'react';
+import BarberDashboardScreen from './screens/BarberDashboardScreen';
 
-export default function SettingsTab() {
+export default function BarberDashboardTab() {
   const router = useRouter();
 
   const handleNavigate = (screen: string) => {
+    console.log('Barber Dashboard navigating to:', screen);
     switch (screen) {
       case 'home':
-        router.replace('/(tabs)');
+        router.replace('/');
         break;
       case 'profile':
         router.replace('/profile');
         break;
+      case 'settings':
+        router.replace('/settings');
+        break;
       case 'admin-home':
         router.replace('/admin-home');
-        break;
-      case 'barber-dashboard':
-        router.replace('/barber-dashboard');
         break;
       default:
         router.replace('/(tabs)');
@@ -28,12 +29,10 @@ export default function SettingsTab() {
     router.replace('/(tabs)');
   };
 
-  return <SettingsScreen onNavigate={handleNavigate} onBack={handleBack} />;
+  return (
+    <BarberDashboardScreen 
+      onNavigate={handleNavigate} 
+      onBack={handleBack}
+    />
+  );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-});

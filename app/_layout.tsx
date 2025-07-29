@@ -29,7 +29,18 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="+not-found" />
           <Stack.Screen name="AuthChoiceScreen" options={{ headerShown: false }} />
-          <Stack.Screen name="AuthPhoneScreen" options={{ headerShown: false }} />        </Stack>
+          <Stack.Screen name="AuthPhoneScreen" options={{ headerShown: false }} />
+          <Stack.Screen name="admin-home" options={{ headerShown: false }} />
+          <Stack.Screen name="admin-appointments" options={{ headerShown: false }} />
+          <Stack.Screen name="admin-team" options={{ headerShown: false }} />
+          <Stack.Screen name="admin-treatments" options={{ headerShown: false }} />
+          <Stack.Screen name="admin-gallery" options={{ headerShown: false }} />
+          <Stack.Screen name="admin-availability" options={{ headerShown: false }} />
+          <Stack.Screen name="admin-settings" options={{ headerShown: false }} />
+          <Stack.Screen name="admin-statistics" options={{ headerShown: false }} />
+          <Stack.Screen name="admin-notifications" options={{ headerShown: false }} />
+          <Stack.Screen name="settings" options={{ headerShown: false }} />
+        </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>
     </I18nextProvider>

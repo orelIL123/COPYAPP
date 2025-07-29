@@ -1,27 +1,47 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
-    ActivityIndicator,
     Alert,
     Image,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
     SafeAreaView,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
-import { auth } from '../../config/firebase';
+import {
+    checkPhoneUserExists,
+    loginWithPhoneAndPassword,
+    registerUserWithPhone,
+    sendSMSVerification,
+    setPasswordForPhoneUser,
+    verifySMSCode
+} from '../../services/firebase';
 
 export default function AuthPhoneScreen() {
-  const router = useRouter();
   const { mode } = useLocalSearchParams();
-  const isRegisterMode = mode === 'register';
-  
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [isRegisterMode, setIsRegisterMode] = useState(mode === 'register');
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<'input' | 'otp'>('input');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [confirmationResult, setConfirmationResult] = useState<any>(null);
+  const [displayName, setDisplayName] = useState('');
+  const [phoneUserExists, setPhoneUserExists] = useState(false);
+  const [phoneUserHasPassword, setPhoneUserHasPassword] = useState(false);
+  const [registrationPassword, setRegistrationPassword] = useState(''); // סיסמא להרשמה
+  const [showTerms, setShowTerms] = useState(false);
+
+  const router = useRouter();
+  const { t } = useTranslation();
 
   const isValidEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -29,199 +49,366 @@ export default function AuthPhoneScreen() {
   };
 
   const isValidPhone = (phone: string) => {
-    const digits = phone.replace(/\D/g, '');
-    if (digits.length === 10 && digits.startsWith('05')) {
-      const prefix = digits.substring(1, 3);
-      return ['50', '52', '53', '54', '55', '57', '58'].includes(prefix);
-    }
-    return false;
+    const phoneRegex = /^(\+972|0)?[5][0-9]{8}$/;
+    return phoneRegex.test(phone);
   };
 
-  const handleAuth = async () => {
+  const checkPhoneUser = async (phone: string) => {
+    try {
+      const result = await checkPhoneUserExists(phone);
+      setPhoneUserExists(result.exists);
+      setPhoneUserHasPassword(result.hasPassword);
+    } catch (error) {
+      console.error('Error checking phone user:', error);
+    }
+  };
+
+  const handleSendSMSVerification = async () => {
+    if (!displayName.trim()) {
+      Alert.alert('שגיאה', 'אנא הזן שם מלא');
+      return;
+    }
     if (!emailOrPhone.trim()) {
-      Alert.alert('שגיאה', 'נא להזין אימייל או מספר טלפון');
+      Alert.alert('שגיאה', 'אנא הזן מספר טלפון');
       return;
     }
-
-    const isEmail = isValidEmail(emailOrPhone);
-    const isPhone = isValidPhone(emailOrPhone);
-
-    if (!isEmail && !isPhone) {
-      Alert.alert('שגיאה', 'נא להזין אימייל תקין או מספר טלפון תקין (למשל: 0501234567)');
-      return;
-    }
-
-    if (!password.trim()) {
-      Alert.alert('שגיאה', 'נא להזין סיסמה');
-      return;
-    }
-
-    if (password.length < 6) {
-      Alert.alert('שגיאה', 'הסיסמה חייבת להכיל לפחות 6 תווים');
+    if (!registrationPassword.trim() || registrationPassword.length < 6) {
+      Alert.alert('שגיאה', 'אנא הזן סיסמא (לפחות 6 תווים)');
       return;
     }
 
     setLoading(true);
     try {
-      let authCredential = emailOrPhone;
-      
-      if (isPhone) {
-        // For now, show message that phone login will be available soon
-        setLoading(false);
-        Alert.alert('מידע', 'כניסה עם מספר טלפון תתאפשר בקרוב. אנא השתמש באימייל בינתיים.');
-        return;
-      }
-      
-      console.log(`${isRegisterMode ? 'Registering' : 'Logging in'} with email:`, authCredential);
-      
-      // Check if auth is available
-      if (!auth) {
-        setLoading(false);
-        Alert.alert('שגיאה', 'מערכת ההתחברות לא זמינה כרגע. אנא נסה שנית.');
-        return;
-      }
-      
-      // Try Firebase authentication
-      try {
-        let userCredential;
-        
-        if (isRegisterMode) {
-          userCredential = await createUserWithEmailAndPassword(auth, authCredential, password);
-        } else {
-          userCredential = await signInWithEmailAndPassword(auth, authCredential, password);
-        }
-        
-        const user = userCredential.user;
-        
-        setLoading(false);
-        console.log(`${isRegisterMode ? 'Registration' : 'Login'} successful:`, user.uid);
-        Alert.alert(
-          isRegisterMode ? 'הרשמה הושלמה' : 'התחברות הושלמה', 
-          isRegisterMode ? 'נרשמת בהצלחה!' : 'התחברת בהצלחה!', 
-          [
-            { text: 'אוקיי', onPress: () => router.back() }
-          ]
-        );
-        
-      } catch (firebaseError: any) {
-        setLoading(false);
-        console.error('Firebase auth error:', firebaseError);
-        
-        // Safe error message handling
-        let errorMessage = `בעיה ב${isRegisterMode ? 'הרשמה' : 'התחברות'}. אנא בדוק את הפרטים ונסה שנית.`;
-        if (firebaseError?.code) {
-          switch (firebaseError.code) {
-            case 'auth/user-not-found':
-              errorMessage = 'משתמש לא נמצא במערכת';
-              break;
-            case 'auth/wrong-password':
-              errorMessage = 'סיסמה שגויה';
-              break;
-            case 'auth/invalid-email':
-              errorMessage = 'כתובת אימייל לא תקינה';
-              break;
-            case 'auth/user-disabled':
-              errorMessage = 'החשבון הזה חסום';
-              break;
-            case 'auth/email-already-in-use':
-              errorMessage = 'כתובת האימייל כבר קיימת במערכת';
-              break;
-            case 'auth/weak-password':
-              errorMessage = 'הסיסמה חייבת להכיל לפחות 6 תווים';
-              break;
-            case 'auth/network-request-failed':
-              errorMessage = 'בעיית חיבור לאינטרנט. אנא נסה שנית.';
-              break;
-          }
-        }
-        
-        Alert.alert('שגיאה', errorMessage);
-      }
-      
+      const result = await sendSMSVerification(emailOrPhone);
+      setConfirmationResult(result);
+      setStep('otp');
+      Alert.alert('הצלחה', 'קוד אימות נשלח לטלפון שלך');
     } catch (error: any) {
+      Alert.alert('שגיאה', error.message || 'שגיאה בשליחת קוד אימות');
+    } finally {
       setLoading(false);
-      console.error('Unexpected auth error:', error);
-      const safeErrorMessage = error?.message || `שגיאה לא צפויה ב${isRegisterMode ? 'הרשמה' : 'התחברות'}`;
-      Alert.alert('שגיאה', safeErrorMessage);
     }
+  };
+
+  const handleVerifyCode = async () => {
+    if (!verificationCode.trim()) {
+      Alert.alert('שגיאה', 'אנא הזן קוד אימות');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (isRegisterMode) {
+        // הרשמה - אימות קוד ויצירת משתמש עם סיסמא
+        const user = await registerUserWithPhone(emailOrPhone, displayName, confirmationResult, verificationCode);
+        // עדכון הסיסמא למשתמש החדש
+        await setPasswordForPhoneUser(emailOrPhone, registrationPassword);
+        Alert.alert('הצלחה', 'ההרשמה הושלמה בהצלחה!');
+        router.replace('/(tabs)');
+      } else {
+        // התחברות - אימות קוד בלבד
+        await verifySMSCode(confirmationResult, verificationCode);
+        Alert.alert('הצלחה', 'התחברת בהצלחה!');
+        router.replace('/(tabs)');
+      }
+    } catch (error: any) {
+      Alert.alert('שגיאה', error.message || 'שגיאה באימות הקוד');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAuth = async () => {
+    if (!emailOrPhone.trim()) {
+      Alert.alert('שגיאה', 'אנא הזן מספר טלפון');
+      return;
+    }
+
+    const isPhone = isValidPhone(emailOrPhone);
+
+    if (!isPhone) {
+      Alert.alert('שגיאה', 'אנא הזן מספר טלפון תקין');
+      return;
+    }
+
+    // Handle phone authentication
+    if (isRegisterMode) {
+      // הרשמה - שליחת SMS לאימות
+      handleSendSMSVerification();
+    } else {
+      // התחברות - בדיקה אם יש סיסמא
+      await checkPhoneUser(emailOrPhone);
+      if (!phoneUserExists) {
+        Alert.alert('שגיאה', 'משתמש לא נמצא. אנא הירשם תחילה');
+        return;
+      }
+      if (!phoneUserHasPassword) {
+        Alert.alert('שגיאה', 'למשתמש זה אין סיסמא מוגדרת. אנא פנה למנהל המערכת');
+        return;
+      }
+      if (!password.trim()) {
+        Alert.alert('שגיאה', 'אנא הזן סיסמא');
+        return;
+      }
+      
+      setLoading(true);
+      try {
+        await loginWithPhoneAndPassword(emailOrPhone, password);
+        Alert.alert('הצלחה', 'התחברת בהצלחה!');
+        router.replace('/(tabs)');
+      } catch (error: any) {
+        Alert.alert('שגיאה', error.message || 'שגיאה בהתחברות');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleBackToInput = () => {
+    setStep('input');
+    setVerificationCode('');
+    setConfirmationResult(null);
+  };
+
+  const handleSwitchMode = () => {
+    setIsRegisterMode(!isRegisterMode);
+    // נקה את השדות כשעוברים בין מצבים
+    setEmailOrPhone('');
+    setPassword('');
+    setDisplayName('');
+    setRegistrationPassword('');
+    setPhoneUserExists(false);
+    setPhoneUserHasPassword(false);
+    setStep('input');
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>{isRegisterMode ? 'הרשמה' : 'התחברות'}</Text>
-        <View style={styles.placeholder} />
-      </View>
-
-      <View style={styles.content}>
-        <View style={styles.logoSection}>
-          <Image
-            source={require('../../assets/images/icon.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={styles.appName}>Barbers Bar</Text>
-        </View>
-
-        <Text style={styles.subtitle}>
-          {isRegisterMode ? 'הרשמה עם אימייל' : 'התחברות עם אימייל או טלפון'}
-        </Text>
-        
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>אימייל או מספר טלפון</Text>
-          <TextInput
-            style={styles.input}
-            value={emailOrPhone}
-            onChangeText={setEmailOrPhone}
-            placeholder="user@example.com או 0501234567"
-            placeholderTextColor="#999"
-            autoCapitalize="none"
-            textAlign="left"
-            keyboardType="email-address"
-          />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>סיסמה</Text>
-          <TextInput
-            style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-            placeholder="הזן סיסמה (לפחות 6 תווים)"
-            placeholderTextColor="#999"
-            secureTextEntry
-            textAlign="left"
-          />
-        </View>
-
-        <TouchableOpacity 
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleAuth}
-          disabled={loading}
+      <KeyboardAvoidingView 
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
         >
-          {loading ? (
-            <ActivityIndicator color="#ffffff" />
-          ) : (
-            <Text style={styles.buttonText}>
-              {isRegisterMode ? 'הירשם' : 'התחבר'}
-            </Text>
-          )}
-        </TouchableOpacity>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()}>
+              <Ionicons name="arrow-back" size={24} color="#000" />
+            </TouchableOpacity>
+          </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            {isRegisterMode ? 'יש לך כבר חשבון? ' : 'אין לך חשבון? '}
-          </Text>
-          <TouchableOpacity onPress={() => router.replace(isRegisterMode ? '/screens/AuthPhoneScreen' : '/screens/AuthPhoneScreen?mode=register')}>
-            <Text style={styles.linkText}>
-              {isRegisterMode ? 'התחבר כאן' : 'הירשם כאן'}
+          <View style={styles.contentContainer}>
+            <Text style={styles.title}>
+              {step === 'otp' ? 'אימות קוד' : (isRegisterMode ? 'הרשמה' : 'התחברות')}
             </Text>
-          </TouchableOpacity>
+
+            <View style={styles.logoContainer}>
+              <Image source={require('../../assets/images/icon.png')} style={styles.logo} />
+            </View>
+
+            {step === 'input' ? (
+              <>
+                <Text style={styles.subtitle}>
+                  {isRegisterMode ? 'הרשמה עם טלפון' : 'התחברות עם טלפון'}
+                </Text>
+                {isRegisterMode && (
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>שם מלא</Text>
+                    <TextInput
+                      value={displayName}
+                      onChangeText={setDisplayName}
+                      style={styles.input}
+                      placeholder="הזן שם מלא"
+                      placeholderTextColor="#999"
+                      returnKeyType="next"
+                    />
+                  </View>
+                )}
+                <View style={styles.inputContainer}>
+                  <Text style={styles.label}>מספר טלפון</Text>
+                  <TextInput
+                    value={emailOrPhone}
+                    onChangeText={(text: string) => {
+                      setEmailOrPhone(text);
+                      if (text.length > 10) checkPhoneUser(text);
+                    }}
+                    style={styles.input}
+                    placeholder="הזן מספר טלפון"
+                    placeholderTextColor="#999"
+                    keyboardType="phone-pad"
+                    returnKeyType="next"
+                  />
+                </View>
+                {isRegisterMode && (
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>סיסמא</Text>
+                    <TextInput
+                      value={registrationPassword}
+                      onChangeText={setRegistrationPassword}
+                      style={styles.input}
+                      placeholder="הזן סיסמא (לפחות 6 תווים)"
+                      placeholderTextColor="#999"
+                      secureTextEntry
+                      returnKeyType="done"
+                    />
+                  </View>
+                )}
+                {!isRegisterMode && (
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>סיסמא</Text>
+                    <TextInput
+                      value={password}
+                      onChangeText={setPassword}
+                      style={styles.input}
+                      placeholder="הזן סיסמא"
+                      placeholderTextColor="#999"
+                      secureTextEntry
+                      returnKeyType="done"
+                    />
+                  </View>
+                )}
+                <TouchableOpacity
+                  onPress={handleAuth}
+                  style={[styles.button, loading && styles.buttonDisabled]}
+                  disabled={loading}
+                >
+                  <Text style={styles.buttonText}>
+                    {isRegisterMode ? 'שלח קוד אימות' : 'התחבר'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={styles.subtitle}>
+                  קוד אימות נשלח למספר {emailOrPhone}
+                </Text>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.label}>קוד אימות</Text>
+                  <TextInput
+                    value={verificationCode}
+                    onChangeText={setVerificationCode}
+                    style={styles.input}
+                    placeholder="הזן קוד אימות"
+                    placeholderTextColor="#999"
+                    keyboardType="number-pad"
+                    returnKeyType="done"
+                  />
+                </View>
+                <TouchableOpacity
+                  onPress={handleVerifyCode}
+                  style={[styles.button, loading && styles.buttonDisabled]}
+                  disabled={loading}
+                >
+                  <Text style={styles.buttonText}>
+                    {isRegisterMode ? 'השלם הרשמה' : 'אמת קוד'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.secondaryButton} onPress={handleBackToInput}>
+                  <Text style={styles.secondaryButtonText}>חזור</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            <View style={styles.footer}>
+              <TouchableOpacity onPress={handleSwitchMode}>
+                <Text style={styles.switchText}>
+                  {isRegisterMode ? 'יש לך כבר חשבון? התחבר' : 'אין לך חשבון? הירשם'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.termsFooter}>
+              <Text style={styles.termsFooterText}>
+                המשך השימוש מהווה הסכמה ל{' '}
+                <Text style={styles.termsLink} onPress={() => setShowTerms(true)}>תנאי השימוש</Text>
+                {' '}ול{' '}
+                <Text style={styles.termsLink} onPress={() => setShowTerms(true)}>מדיניות הפרטיות</Text>
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Terms Modal */}
+      <Modal
+        visible={showTerms}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowTerms(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>תנאי שימוש ומדיניות פרטיות</Text>
+            <ScrollView style={styles.modalScrollView}>
+              <Text style={styles.modalText}>
+                <Text style={styles.sectionTitle}>תנאי שימוש - Barbers Bar{'\n\n'}</Text>
+                
+                <Text style={styles.subsectionTitle}>1. קבלת השירות{'\n'}</Text>
+                • השירות מיועד לקביעת תורים במספרה Barbers Bar{'\n'}
+                • יש לספק מידע מדויק ומלא בעת קביעת התור{'\n'}
+                • המספרה שומרת לעצמה את הזכות לסרב לתת שירות במקרים חריגים{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>2. ביטול תורים{'\n'}</Text>
+                • ביטול תור יש לבצע לפחות 2 שעות לפני מועד התור{'\n'}
+                • ביטול מאוחר יותר מ-2 שעות עלול לחייב תשלום{'\n'}
+                • במקרה של איחור של יותר מ-15 דקות, התור עלול להתבטל{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>3. תשלומים{'\n'}</Text>
+                • התשלום מתבצע במספרה לאחר קבלת השירות{'\n'}
+                • המחירים כפי שמופיעים באפליקציה{'\n'}
+                • המספרה שומרת לעצמה את הזכות לשנות מחירים{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>4. אחריות{'\n'}</Text>
+                • המספרה מתחייבת לאיכות השירות{'\n'}
+                • במקרה של אי שביעות רצון, יש לפנות למנהל המספרה{'\n'}
+                • המספרה לא אחראית לנזקים עקיפים{'\n\n'}
+                
+                <Text style={styles.sectionTitle}>מדיניות פרטיות{'\n\n'}</Text>
+                
+                <Text style={styles.subsectionTitle}>1. איסוף מידע{'\n'}</Text>
+                • אנו אוספים: שם מלא, מספר טלפון, פרטי תורים{'\n'}
+                • המידע נאסף לצורך מתן השירות בלבד{'\n'}
+                • לא נאסוף מידע מיותר{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>2. שימוש במידע{'\n'}</Text>
+                • המידע משמש לקביעת תורים ותקשורת{'\n'}
+                • לא נשתף את המידע עם צדדים שלישיים{'\n'}
+                • לא נשלח הודעות פרסומיות ללא אישור{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>3. אבטחה{'\n'}</Text>
+                • המידע מאוחסן באופן מאובטח{'\n'}
+                • גישה למידע מוגבלת לעובדי המספרה בלבד{'\n'}
+                • נעדכן את האבטחה לפי הצורך{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>4. זכויות המשתמש{'\n'}</Text>
+                • הזכות לבקש עותק מהמידע שלך{'\n'}
+                • הזכות לבקש מחיקה של המידע{'\n'}
+                • הזכות לעדכן את המידע{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>5. עדכונים{'\n'}</Text>
+                • מדיניות זו עשויה להתעדכן{'\n'}
+                • עדכונים יפורסמו באפליקציה{'\n'}
+                • המשך השימוש מהווה הסכמה לתנאים המעודכנים{'\n\n'}
+                
+                <Text style={styles.contactInfo}>
+                  לשאלות או בקשות: רפיח ים 13, טלפון: 054-2280222{'\n'}
+                  מייל: info@barbersbar.co.il
+                </Text>
+              </Text>
+            </ScrollView>
+            <TouchableOpacity 
+              style={styles.modalCloseButton} 
+              onPress={() => setShowTerms(false)}
+            >
+              <Text style={styles.modalCloseText}>סגור</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -231,51 +418,39 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#ffffff',
   },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+  },
+  contentContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 600,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: '#1a1a1a',
+    marginTop: 20,
+    marginBottom: 40,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 28,
+    fontWeight: '700',
     color: '#1a1a1a',
+    textAlign: 'center',
+    marginBottom: 20,
   },
-  placeholder: {
-    width: 40,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  logoSection: {
+  logoContainer: {
     alignItems: 'center',
     marginBottom: 40,
   },
   logo: {
-    width: 80,
-    height: 80,
-    marginBottom: 16,
-  },
-  appName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1a1a1a',
+    width: 100,
+    height: 100,
   },
   subtitle: {
     fontSize: 20,
@@ -324,15 +499,102 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 40,
+    marginBottom: 20,
   },
-  footerText: {
+  helperText: {
+    fontSize: 14,
+    color: '#4CAF50',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  secondaryButton: {
+    marginTop: 20,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  secondaryButtonText: {
+    color: '#3b82f6',
     fontSize: 16,
-    color: '#666666',
+    fontWeight: '500',
   },
-  linkText: {
+  switchText: {
     color: '#3b82f6',
     fontSize: 16,
     fontWeight: '500',
     textDecorationLine: 'underline',
+  },
+  termsFooter: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  termsFooterText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  termsLink: {
+    color: '#3b82f6',
+    textDecorationLine: 'underline',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 20,
+    width: '90%',
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  modalScrollView: {
+    maxHeight: '70%',
+  },
+  modalText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#333',
+    marginBottom: 15,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 15,
+    marginBottom: 10,
+  },
+  subsectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  contactInfo: {
+    fontSize: 14,
+    color: '#555',
+    marginTop: 15,
+    textAlign: 'center',
+  },
+  modalCloseButton: {
+    backgroundColor: '#3b82f6',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignSelf: 'center',
+    marginTop: 15,
+  },
+  modalCloseText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 }); 
