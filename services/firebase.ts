@@ -449,7 +449,8 @@ export const registerUserWithPhone = async (phoneNumber: string, displayName: st
     });
     
     // Check if this is the admin phone number
-    const isAdminPhone = formattedPhone === '+972542280222';
+    const { isAdminPhone } = await import('../constants/contactInfo');
+    const isAdmin = isAdminPhone(formattedPhone);
     
     const userProfile: UserProfile = {
       uid: user.uid,
@@ -457,7 +458,7 @@ export const registerUserWithPhone = async (phoneNumber: string, displayName: st
       displayName: displayName,
       firstName: displayName.split(' ')[0] || displayName, // Take first word as firstName
       phone: formattedPhone,
-      isAdmin: isAdminPhone,
+      isAdmin: isAdmin,
       hasPassword: true, // User now has a password (the temp one)
       createdAt: Timestamp.now()
     };
@@ -675,6 +676,25 @@ export const getBarber = async (barberId: string): Promise<Barber | null> => {
     return null;
   } catch (error) {
     console.error('Error getting barber:', error);
+    return null;
+  }
+};
+
+export const getBarberByUserId = async (userId: string): Promise<Barber | null> => {
+  try {
+    const q = query(collection(db, 'barbers'), where('userId', '==', userId));
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+      const doc = querySnapshot.docs[0];
+      return {
+        id: doc.id,
+        ...doc.data()
+      } as Barber;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting barber by user ID:', error);
     return null;
   }
 };
@@ -2452,18 +2472,12 @@ export const registerForPushNotifications = async (userId: string) => {
       return null;
     }
 
-    // Check existing permissions
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-
-    // Request permissions if not granted
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-
-    if (finalStatus !== 'granted') {
-      console.log('❌ Failed to get push notification permissions');
+    // Request notification permission with proper explanation
+    const { requestNotificationPermission } = await import('./permissions');
+    const hasPermission = await requestNotificationPermission();
+    
+    if (!hasPermission) {
+      console.log('❌ User denied push notification permissions');
       return null;
     }
 

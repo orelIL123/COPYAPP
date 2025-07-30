@@ -121,7 +121,7 @@ export default function AuthChoiceScreen() {
                 • המשך השימוש מהווה הסכמה לתנאים המעודכנים{'\n\n'}
                 
                 <Text style={styles.contactInfo}>
-                  לשאלות או בקשות: רפיח ים 13, טלפון: 054-2280222{'\n'}
+                  {require('../../constants/contactInfo').CONTACT_INFO.contactText}{'\n'}
                   מייל: info@barbersbar.co.il
                 </Text>
               </Text>

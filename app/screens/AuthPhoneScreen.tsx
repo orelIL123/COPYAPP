@@ -69,11 +69,19 @@ export default function AuthPhoneScreen() {
       return;
     }
     if (!emailOrPhone.trim()) {
-      Alert.alert('שגיאה', 'אנא הזן מספר טלפון');
+      Alert.alert('שגיאה', 'אנא הזן אימייל או מספר טלפון');
       return;
     }
     if (!registrationPassword.trim() || registrationPassword.length < 6) {
       Alert.alert('שגיאה', 'אנא הזן סיסמא (לפחות 6 תווים)');
+      return;
+    }
+
+    // Show SMS verification explanation first
+    const { showSMSVerificationExplanation } = await import('../../services/permissions');
+    const userConsents = await showSMSVerificationExplanation();
+    
+    if (!userConsents) {
       return;
     }
 
@@ -120,32 +128,28 @@ export default function AuthPhoneScreen() {
 
   const handleAuth = async () => {
     if (!emailOrPhone.trim()) {
-      Alert.alert('שגיאה', 'אנא הזן מספר טלפון');
+      Alert.alert('שגיאה', 'אנא הזן אימייל או מספר טלפון');
       return;
     }
 
     const isPhone = isValidPhone(emailOrPhone);
+    const isEmail = isValidEmail(emailOrPhone);
 
-    if (!isPhone) {
-      Alert.alert('שגיאה', 'אנא הזן מספר טלפון תקין');
+    // במצב הרשמה - רק טלפון מותר
+    if (isRegisterMode && !isPhone) {
+      Alert.alert('שגיאה', 'הרשמה אפשרית רק עם מספר טלפון');
       return;
     }
 
-    // Handle phone authentication
-    if (isRegisterMode) {
-      // הרשמה - שליחת SMS לאימות
-      handleSendSMSVerification();
-    } else {
-      // התחברות - בדיקה אם יש סיסמא
-      await checkPhoneUser(emailOrPhone);
-      if (!phoneUserExists) {
-        Alert.alert('שגיאה', 'משתמש לא נמצא. אנא הירשם תחילה');
-        return;
-      }
-      if (!phoneUserHasPassword) {
-        Alert.alert('שגיאה', 'למשתמש זה אין סיסמא מוגדרת. אנא פנה למנהל המערכת');
-        return;
-      }
+    // במצב התחברות - בדוק תקינות
+    if (!isRegisterMode && !isPhone && !isEmail) {
+      Alert.alert('שגיאה', 'אנא הזן אימייל או מספר טלפון תקינים');
+      return;
+    }
+
+    // Handle authentication based on input type
+    if (isEmail && !isRegisterMode) {
+      // Email authentication - רק במצב התחברות
       if (!password.trim()) {
         Alert.alert('שגיאה', 'אנא הזן סיסמא');
         return;
@@ -153,13 +157,56 @@ export default function AuthPhoneScreen() {
       
       setLoading(true);
       try {
-        await loginWithPhoneAndPassword(emailOrPhone, password);
+        const { signInWithEmailAndPassword } = await import('firebase/auth');
+        const { auth } = await import('../../config/firebase');
+        
+        await signInWithEmailAndPassword(auth, emailOrPhone, password);
         Alert.alert('הצלחה', 'התחברת בהצלחה!');
         router.replace('/(tabs)');
       } catch (error: any) {
-        Alert.alert('שגיאה', error.message || 'שגיאה בהתחברות');
+        let errorMessage = 'שגיאה בהתחברות';
+        if (error.code === 'auth/user-not-found') {
+          errorMessage = 'משתמש לא נמצא. אנא הירשם תחילה';
+        } else if (error.code === 'auth/wrong-password') {
+          errorMessage = 'סיסמא שגויה';
+        } else if (error.code === 'auth/invalid-email') {
+          errorMessage = 'כתובת אימייל לא תקינה';
+        }
+        Alert.alert('שגיאה', errorMessage);
       } finally {
         setLoading(false);
+      }
+    } else {
+      // Phone authentication - use SMS verification
+      if (isRegisterMode) {
+        // הרשמה - שליחת SMS לאימות
+        handleSendSMSVerification();
+      } else {
+        // התחברות - בדיקה אם יש סיסמא
+        await checkPhoneUser(emailOrPhone);
+        if (!phoneUserExists) {
+          Alert.alert('שגיאה', 'משתמש לא נמצא. אנא הירשם תחילה');
+          return;
+        }
+        if (!phoneUserHasPassword) {
+          Alert.alert('שגיאה', 'למשתמש זה אין סיסמא מוגדרת. אנא פנה למנהל המערכת');
+          return;
+        }
+        if (!password.trim()) {
+          Alert.alert('שגיאה', 'אנא הזן סיסמא');
+          return;
+        }
+        
+        setLoading(true);
+        try {
+          await loginWithPhoneAndPassword(emailOrPhone, password);
+          Alert.alert('הצלחה', 'התחברת בהצלחה!');
+          router.replace('/(tabs)');
+        } catch (error: any) {
+          Alert.alert('שגיאה', error.message || 'שגיאה בהתחברות');
+        } finally {
+          setLoading(false);
+        }
       }
     }
   };
@@ -213,7 +260,7 @@ export default function AuthPhoneScreen() {
             {step === 'input' ? (
               <>
                 <Text style={styles.subtitle}>
-                  {isRegisterMode ? 'הרשמה עם טלפון' : 'התחברות עם טלפון'}
+                  {isRegisterMode ? 'הרשמה עם מספר טלפון' : 'התחברות עם אימייל או טלפון'}
                 </Text>
                 {isRegisterMode && (
                   <View style={styles.inputContainer}>
@@ -229,7 +276,9 @@ export default function AuthPhoneScreen() {
                   </View>
                 )}
                 <View style={styles.inputContainer}>
-                  <Text style={styles.label}>מספר טלפון</Text>
+                  <Text style={styles.label}>
+                    {isRegisterMode ? 'מספר טלפון' : 'אימייל או מספר טלפון'}
+                  </Text>
                   <TextInput
                     value={emailOrPhone}
                     onChangeText={(text: string) => {
@@ -237,9 +286,9 @@ export default function AuthPhoneScreen() {
                       if (text.length > 10) checkPhoneUser(text);
                     }}
                     style={styles.input}
-                    placeholder="הזן מספר טלפון"
+                    placeholder={isRegisterMode ? "הזן מספר טלפון" : "הזן אימייל או מספר טלפון"}
                     placeholderTextColor="#999"
-                    keyboardType="phone-pad"
+                    keyboardType={isRegisterMode ? "phone-pad" : "email-address"}
                     returnKeyType="next"
                   />
                 </View>
@@ -322,12 +371,15 @@ export default function AuthPhoneScreen() {
             </View>
 
             <View style={styles.termsFooter}>
-              <Text style={styles.termsFooterText}>
-                המשך השימוש מהווה הסכמה ל{' '}
-                <Text style={styles.termsLink} onPress={() => setShowTerms(true)}>תנאי השימוש</Text>
-                {' '}ול{' '}
-                <Text style={styles.termsLink} onPress={() => setShowTerms(true)}>מדיניות הפרטיות</Text>
-              </Text>
+              {isRegisterMode && (
+                <Text style={styles.termsFooterText}>
+                  בהמשך ההרשמה אתה מסכים ל{' '}
+                  <Text style={styles.termsLink} onPress={() => setShowTerms(true)}>תנאי השימוש</Text>
+                  {' '}ול{' '}
+                  <Text style={styles.termsLink} onPress={() => setShowTerms(true)}>מדיניות הפרטיות</Text>
+                  {' '}של האפליקציה
+                </Text>
+              )}
             </View>
           </View>
         </ScrollView>
@@ -345,58 +397,88 @@ export default function AuthPhoneScreen() {
             <Text style={styles.modalTitle}>תנאי שימוש ומדיניות פרטיות</Text>
             <ScrollView style={styles.modalScrollView}>
               <Text style={styles.modalText}>
-                <Text style={styles.sectionTitle}>תנאי שימוש - Barbers Bar{'\n\n'}</Text>
+                <Text style={styles.sectionTitle}>תנאי שימוש ומדיניות פרטיות - Barbers Bar{'\n\n'}</Text>
+                
+                <Text style={styles.subsectionTitle}>תנאי שימוש{'\n\n'}</Text>
                 
                 <Text style={styles.subsectionTitle}>1. קבלת השירות{'\n'}</Text>
-                • השירות מיועד לקביעת תורים במספרה Barbers Bar{'\n'}
+                • האפליקציה מיועדת לקביעת תורים במספרה Barbers Bar{'\n'}
                 • יש לספק מידע מדויק ומלא בעת קביעת התור{'\n'}
-                • המספרה שומרת לעצמה את הזכות לסרב לתת שירות במקרים חריגים{'\n\n'}
+                • המספרה שומרת לעצמה את הזכות לסרב לתת שירות במקרים חריגים{'\n'}
+                • השימוש באפליקציה מותר מגיל 13 ומעלה{'\n\n'}
                 
                 <Text style={styles.subsectionTitle}>2. ביטול תורים{'\n'}</Text>
                 • ביטול תור יש לבצע לפחות 2 שעות לפני מועד התור{'\n'}
                 • ביטול מאוחר יותר מ-2 שעות עלול לחייב תשלום{'\n'}
-                • במקרה של איחור של יותר מ-15 דקות, התור עלול להתבטל{'\n\n'}
+                • במקרה של איחור של יותר מ-15 דקות, התור עלול להתבטל{'\n'}
+                • ביטול תורים מתבצע דרך האפליקציה או בטלפון{'\n\n'}
                 
                 <Text style={styles.subsectionTitle}>3. תשלומים{'\n'}</Text>
                 • התשלום מתבצע במספרה לאחר קבלת השירות{'\n'}
                 • המחירים כפי שמופיעים באפליקציה{'\n'}
-                • המספרה שומרת לעצמה את הזכות לשנות מחירים{'\n\n'}
+                • המספרה שומרת לעצמה את הזכות לשנות מחירים{'\n'}
+                • לא מתבצע תשלום דרך האפליקציה{'\n\n'}
                 
                 <Text style={styles.subsectionTitle}>4. אחריות{'\n'}</Text>
                 • המספרה מתחייבת לאיכות השירות{'\n'}
                 • במקרה של אי שביעות רצון, יש לפנות למנהל המספרה{'\n'}
-                • המספרה לא אחראית לנזקים עקיפים{'\n\n'}
+                • המספרה לא אחראית לנזקים עקיפים{'\n'}
+                • האחריות מוגבלת לשירותי המספרה בלבד{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>5. שימוש באפליקציה{'\n'}</Text>
+                • אסור להשתמש באפליקציה למטרות בלתי חוקיות{'\n'}
+                • אסור לנסות לפרוץ או לשבש את פעילות האפליקציה{'\n'}
+                • אסור להעביר את פרטי החשבון לאחרים{'\n'}
+                • המספרה שומרת לעצמה את הזכות לחסום משתמשים{'\n\n'}
                 
                 <Text style={styles.sectionTitle}>מדיניות פרטיות{'\n\n'}</Text>
                 
                 <Text style={styles.subsectionTitle}>1. איסוף מידע{'\n'}</Text>
                 • אנו אוספים: שם מלא, מספר טלפון, פרטי תורים{'\n'}
                 • המידע נאסף לצורך מתן השירות בלבד{'\n'}
-                • לא נאסוף מידע מיותר{'\n\n'}
+                • לא נאסוף מידע מיותר או מידע רגיש{'\n'}
+                • לא נאסוף מידע על מיקום המשתמש{'\n\n'}
                 
                 <Text style={styles.subsectionTitle}>2. שימוש במידע{'\n'}</Text>
-                • המידע משמש לקביעת תורים ותקשורת{'\n'}
+                • המידע משמש לקביעת תורים ותקשורת עם הלקוח{'\n'}
                 • לא נשתף את המידע עם צדדים שלישיים{'\n'}
-                • לא נשלח הודעות פרסומיות ללא אישור{'\n\n'}
+                • לא נשלח הודעות פרסומיות ללא אישור מפורש{'\n'}
+                • המידע נשמר רק לצורך מתן השירות{'\n\n'}
                 
                 <Text style={styles.subsectionTitle}>3. אבטחה{'\n'}</Text>
-                • המידע מאוחסן באופן מאובטח{'\n'}
+                • המידע מאוחסן באופן מאובטח ב-Firebase{'\n'}
                 • גישה למידע מוגבלת לעובדי המספרה בלבד{'\n'}
-                • נעדכן את האבטחה לפי הצורך{'\n\n'}
+                • נעדכן את האבטחה לפי הצורך{'\n'}
+                • המידע מוצפן בעת העברה{'\n\n'}
                 
                 <Text style={styles.subsectionTitle}>4. זכויות המשתמש{'\n'}</Text>
                 • הזכות לבקש עותק מהמידע שלך{'\n'}
                 • הזכות לבקש מחיקה של המידע{'\n'}
-                • הזכות לעדכן את המידע{'\n\n'}
+                • הזכות לעדכן את המידע{'\n'}
+                • הזכות לבטל את ההרשמה בכל עת{'\n\n'}
                 
-                <Text style={styles.subsectionTitle}>5. עדכונים{'\n'}</Text>
+                <Text style={styles.subsectionTitle}>5. עוגיות וטכנולוגיות מעקב{'\n'}</Text>
+                • האפליקציה לא משתמשת בעוגיות{'\n'}
+                • לא מתבצע מעקב אחר התנהגות המשתמש{'\n'}
+                • לא נאסוף מידע על הרגלי הגלישה{'\n'}
+                • לא נשתמש בטכנולוגיות מעקב{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>6. עדכונים{'\n'}</Text>
                 • מדיניות זו עשויה להתעדכן{'\n'}
                 • עדכונים יפורסמו באפליקציה{'\n'}
-                • המשך השימוש מהווה הסכמה לתנאים המעודכנים{'\n\n'}
+                • המשך השימוש מהווה הסכמה לתנאים המעודכנים{'\n'}
+                • שינויים מהותיים יובאו לידיעת המשתמשים{'\n\n'}
+                
+                <Text style={styles.subsectionTitle}>7. יצירת קשר{'\n'}</Text>
+                • לשאלות על מדיניות הפרטיות: info@barbersbar.co.il{'\n'}
+                • כתובת: רפיח ים 13, תל אביב{'\n'}
+                • טלפון: 054-8353232{'\n'}
+                • שעות פעילות: א'-ה' 9:00-20:00, ו' 9:00-15:00{'\n\n'}
                 
                 <Text style={styles.contactInfo}>
-                  לשאלות או בקשות: רפיח ים 13, טלפון: 054-2280222{'\n'}
-                  מייל: info@barbersbar.co.il
+                  {require('../../constants/contactInfo').CONTACT_INFO.contactText}{'\n'}
+                  מייל: info@barbersbar.co.il{'\n'}
+                  תאריך עדכון אחרון: {new Date().toLocaleDateString('he-IL')}
                 </Text>
               </Text>
             </ScrollView>

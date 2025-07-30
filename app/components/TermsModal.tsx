@@ -42,7 +42,7 @@ Barbers Bar שומר לעצמו את הזכות לעדכן את תנאי השי�
 10. יצירת קשר
 לשאלות או פניות:
 ✉️ orel895@gmail.com
-📞 052-398-5505`;
+📞 ${require('../../constants/contactInfo').CONTACT_INFO.displayPhone}`;
 
 const TermsModal: React.FC<TermsModalProps> = ({ visible, onClose }) => (
   <Modal visible={visible} animationType="slide" transparent>

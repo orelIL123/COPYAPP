@@ -1,0 +1,156 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isValidUserData() {
+      return request.resource.data.keys().hasAll(['uid', 'displayName', 'phone', 'createdAt']) &&
+             request.resource.data.uid == request.auth.uid;
+    }
+    
+    // Users collection - users can read/write their own data, admins can read all
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUserData();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Appointments collection - users can manage their own appointments
+    match /appointments/{appointmentId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.clientId == request.auth.uid || 
+                      resource.data.barberId == request.auth.uid || 
+                      isAdmin());
+      allow create: if isAuthenticated() && 
+                       request.resource.data.clientId == request.auth.uid;
+      allow update: if isAuthenticated() && 
+                       (resource.data.clientId == request.auth.uid || 
+                        resource.data.barberId == request.auth.uid || 
+                        isAdmin());
+      allow delete: if isAdmin() || 
+                       (isAuthenticated() && resource.data.clientId == request.auth.uid);
+    }
+    
+    // Barbers collection - read by all authenticated users, write by admin only
+    match /barbers/{barberId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    // Treatments collection - read by all authenticated users, write by admin only
+    match /treatments/{treatmentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    // Gallery collection - read by all authenticated users, write by admin and barbers
+    match /gallery/{galleryId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAdmin() || 
+                       (isAuthenticated() && resource.data.uploadedBy == request.auth.uid);
+      allow delete: if isAdmin() || 
+                       (isAuthenticated() && resource.data.uploadedBy == request.auth.uid);
+    }
+    
+    // Waitlist collection - users can manage their own waitlist entries
+    match /waitlist/{waitlistId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.clientId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && 
+                       request.resource.data.clientId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isAdmin() || 
+                       (isAuthenticated() && resource.data.clientId == request.auth.uid);
+    }
+    
+    // Settings collection - read by authenticated users, write by admin only
+    match /settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    // Shop collection - read by all authenticated users, write by admin only
+    match /shop/{shopId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    // Notifications collection - users can read their own notifications
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAdmin();
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+    
+    // Push tokens collection - users can manage their own tokens
+    match /pushTokens/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+    
+    // Analytics collection - admin only
+    match /analytics/{docId} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Default deny rule for any other documents
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+// Storage rules
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Users can upload their own profile images
+    match /profiles/{userId}/{allPaths=**} {
+      allow read: if true; // Profile images are publicly readable
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Gallery images - authenticated users can upload, all can read
+    match /gallery/{allPaths=**} {
+      allow read: if true; // Gallery images are publicly readable
+      allow write: if request.auth != null;
+    }
+    
+    // Shop images - admin only
+    match /shop/{allPaths=**} {
+      allow read: if true; // Shop images are publicly readable
+      allow write: if request.auth != null && 
+                      exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+                      get(/databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+    
+    // Treatment images - admin only
+    match /treatments/{allPaths=**} {
+      allow read: if true; // Treatment images are publicly readable
+      allow write: if request.auth != null && 
+                      exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+                      get(/databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+    
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

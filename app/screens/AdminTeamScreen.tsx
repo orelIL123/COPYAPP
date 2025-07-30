@@ -22,6 +22,7 @@ import {
     Barber,
     deleteBarberProfile,
     getBarbers,
+    getCurrentUser,
     getStorageImages,
     getTreatments,
     Treatment,
@@ -45,6 +46,8 @@ const AdminTeamScreen: React.FC<AdminTeamScreenProps> = ({ onNavigate, onBack })
   const [modalVisible, setModalVisible] = useState(false);
   const [editingBarber, setEditingBarber] = useState<Barber | null>(null);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -59,8 +62,22 @@ const AdminTeamScreen: React.FC<AdminTeamScreenProps> = ({ onNavigate, onBack })
   });
 
   useEffect(() => {
+    checkAdminStatus();
     loadBarbers();
   }, []);
+
+  const checkAdminStatus = async () => {
+    try {
+      const user = await getCurrentUser();
+      setCurrentUser(user);
+      // Check if user is admin - this should be checked from user profile
+      // For now, assume admin if they have access to this screen
+      setIsAdmin(true); // TODO: Add proper admin check from Firebase
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      setIsAdmin(false);
+    }
+  };
 
   const loadBarbers = async () => {
     try {
@@ -68,30 +85,51 @@ const AdminTeamScreen: React.FC<AdminTeamScreenProps> = ({ onNavigate, onBack })
       const [barbersData, treatmentsData, imagesData] = await Promise.all([
         getBarbers(),
         getTreatments(),
-        getStorageImages('workers')
+        getStorageImages('ourteam')
       ]);
       console.log('Loaded barbers:', barbersData);
       console.log('Loaded worker images:', imagesData);
       
+      // Sort barbers: main barber (רן) first, then others
+      const sortedBarbers = barbersData.sort((a, b) => {
+        if ((a as any).isMainBarber) return -1;
+        if ((b as any).isMainBarber) return 1;
+        if (a.name === 'רן אגלריסי') return -1;
+        if (b.name === 'רן אגלריסי') return 1;
+        return a.name.localeCompare(b.name);
+      });
+      
       // Auto-fix Ran Algrisi's image if needed
-      const ranAlgrisi = barbersData.find(b => b.name === 'רן אגלריסי');
-      if (ranAlgrisi && imagesData.length > 0 && !ranAlgrisi.image) {
+      const ranAlgrisi = sortedBarbers.find(b => b.name === 'רן אגלריסי');
+      if (ranAlgrisi && imagesData.length > 0 && !(ranAlgrisi as any).image) {
         const ranImage = imagesData.find(img => img.includes('ranalgrisi'));
         if (ranImage) {
           console.log('Auto-fixing Ran Algrisi image:', ranImage);
           try {
-            await updateBarberProfile(ranAlgrisi.id, { image: ranImage });
+            await updateBarberProfile((ranAlgrisi as any).id, { image: ranImage });
             // Reload barbers to reflect changes
             const updatedBarbers = await getBarbers();
-            setBarbers(updatedBarbers);
+            const updatedSorted = updatedBarbers.sort((a, b) => {
+              if ((a as any).isMainBarber) return -1;
+              if ((b as any).isMainBarber) return 1;
+              if (a.name === 'רן אגלריסי') return -1;
+              if (b.name === 'רן אגלריסי') return 1;
+              return a.name.localeCompare(b.name);
+            });
+            setBarbers(updatedSorted);
           } catch (error) {
             console.error('Error updating Ran Algrisi image:', error);
           }
+        } else {
+          setBarbers(sortedBarbers);
         }
+      } else {
+        setBarbers(sortedBarbers);
       }
-      setBarbers(barbersData);
+      
       setTreatments(treatmentsData);
       setWorkerImages(imagesData);
+      console.log('Final barbers loaded:', sortedBarbers.length, 'treatments:', treatmentsData.length);
     } catch (error) {
       console.error('Error loading data:', error);
       showToast('שגיאה בטעינת הנתונים', 'error');
@@ -129,20 +167,24 @@ const AdminTeamScreen: React.FC<AdminTeamScreenProps> = ({ onNavigate, onBack })
   };
 
   const openEditModal = (barber: Barber) => {
+    console.log('Opening edit modal for barber:', barber);
+    console.log('Treatments available:', treatments);
+    console.log('Form data will be:', formData);
     setEditingBarber(barber);
-    const currentPricing = barber.pricing || {};
+    const currentPricing = (barber as any).customPrices || (barber as any).pricing || {};
     const defaultPricing: { [treatmentId: string]: number } = {};
     treatments.forEach(treatment => {
-      defaultPricing[treatment.id] = currentPricing[treatment.id] || treatment.price;
+      const treatmentKey = (treatment as any).treatmentId || treatment.id;
+      defaultPricing[treatmentKey] = currentPricing[treatmentKey] || treatment.price;
     });
     
     setFormData({
       name: barber.name || '',
-      experience: barber.experience || '',
-      rating: (barber.rating || 5).toString(),
-      specialties: (barber.specialties || []).length > 0 ? barber.specialties : [''],
-      image: barber.image || '',
-      available: barber.available !== undefined ? barber.available : true,
+      experience: (barber as any).experience || (barber as any).bio || '',
+      rating: ((barber as any).rating || 5).toString(),
+      specialties: ((barber as any).specialties || []).length > 0 ? (barber as any).specialties : [''],
+      image: (barber as any).image || (barber as any).photo || (barber as any).photoUrl || '',
+      available: (barber as any).available !== undefined ? (barber as any).available : true,
       pricing: defaultPricing,
       phone: barber.phone || ''
     });
@@ -205,7 +247,7 @@ const AdminTeamScreen: React.FC<AdminTeamScreenProps> = ({ onNavigate, onBack })
         specialties: formData.specialties.filter(s => s.trim()),
         image: formData.image.trim() || (workerImages[0] || 'https://via.placeholder.com/150x150'),
         available: formData.available,
-        pricing: formData.pricing,
+        customPrices: formData.pricing,
         phone: formData.phone.trim()
       };
 
@@ -223,8 +265,8 @@ const AdminTeamScreen: React.FC<AdminTeamScreenProps> = ({ onNavigate, onBack })
         showToast('הספר נוסף בהצלחה');
       }
 
-      // Refresh worker images after save
-      const updatedImages = await getStorageImages('workers');
+      // Refresh team images after save
+      const updatedImages = await getStorageImages('ourteam');
       setWorkerImages(updatedImages);
 
       setModalVisible(false);
@@ -273,7 +315,8 @@ const AdminTeamScreen: React.FC<AdminTeamScreenProps> = ({ onNavigate, onBack })
     }
   };
 
-  const handlePhoneCall = (phone: string) => {
+  const handlePhoneCall = (phone?: string) => {
+    if (!phone) return;
     const phoneNumber = `tel:${phone}`;
     Linking.openURL(phoneNumber).catch(err => {
       console.error('Error opening dialer:', err);
@@ -281,7 +324,8 @@ const AdminTeamScreen: React.FC<AdminTeamScreenProps> = ({ onNavigate, onBack })
     });
   };
 
-  const handleWhatsApp = (phone: string) => {
+  const handleWhatsApp = (phone?: string) => {
+    if (!phone) return;
     const whatsappURL = `whatsapp://send?phone=${phone}`;
     Linking.openURL(whatsappURL).catch(err => {
       console.error('Error opening WhatsApp:', err);
@@ -324,15 +368,15 @@ const AdminTeamScreen: React.FC<AdminTeamScreenProps> = ({ onNavigate, onBack })
       
       const fileName = `${formData.name.trim()}_${Date.now()}.jpg`;
       
-      const downloadURL = await uploadImageToStorage(imageUri, 'workers', fileName);
+      const downloadURL = await uploadImageToStorage(imageUri, 'ourteam', fileName);
       
       setFormData({
         ...formData,
         image: downloadURL
       });
       
-      // Refresh worker images
-      const updatedImages = await getStorageImages('workers');
+      // Refresh team images
+      const updatedImages = await getStorageImages('ourteam');
       setWorkerImages(updatedImages);
       
       showToast('התמונה הועלתה בהצלחה', 'success');
@@ -395,32 +439,32 @@ const AdminTeamScreen: React.FC<AdminTeamScreenProps> = ({ onNavigate, onBack })
                   <View style={styles.barberHeader}>
                     <View style={styles.barberImageContainer}>
                       <Image
-                        source={{ uri: barber.image || barber.photoUrl || 'https://via.placeholder.com/150x150' }}
+                        source={{ uri: (barber as any).image || (barber as any).photoUrl || 'https://via.placeholder.com/150x150' }}
                         style={styles.barberImage}
                         defaultSource={{ uri: 'https://via.placeholder.com/150x150' }}
                         onError={(error) => {
-                          console.log('Image loading error for barber:', barber.name, 'URL:', barber.image || barber.photoUrl, 'Error:', error);
+                          console.log('Image loading error for barber:', barber.name, 'URL:', (barber as any).image || (barber as any).photoUrl, 'Error:', error);
                         }}
                         onLoad={() => {
-                          console.log('Image loaded successfully for barber:', barber.name, 'URL:', barber.image || barber.photoUrl);
+                          console.log('Image loaded successfully for barber:', barber.name, 'URL:', (barber as any).image || (barber as any).photoUrl);
                         }}
                       />
                       <TouchableOpacity
                         style={[
                           styles.availabilityBadge,
-                          (barber.available !== false) ? styles.availableBadge : styles.unavailableBadge
+                          ((barber as any).available !== false) ? styles.availableBadge : styles.unavailableBadge
                         ]}
-                        onPress={() => toggleAvailability(barber.id, barber.available)}
+                        onPress={() => toggleAvailability(barber.id, (barber as any).available)}
                       >
                         <Text style={styles.availabilityText}>
-                          {(barber.available !== false) ? 'זמין' : 'לא זמין'}
+                          {((barber as any).available !== false) ? 'זמין' : 'לא זמין'}
                         </Text>
                       </TouchableOpacity>
                     </View>
                     
                     <View style={styles.barberInfo}>
                       <Text style={styles.barberName}>{barber.name}</Text>
-                      <Text style={styles.barberExperience}>{barber.experience || barber.bio || ''}</Text>
+                      <Text style={styles.barberExperience}>{(barber as any).experience || (barber as any).bio || ''}</Text>
                       
                       {barber.phone && (
                         <View style={styles.phoneContainer}>
@@ -444,25 +488,25 @@ const AdminTeamScreen: React.FC<AdminTeamScreenProps> = ({ onNavigate, onBack })
                       
                       <View style={styles.ratingContainer}>
                         <View style={styles.stars}>
-                          {renderStars(barber.rating)}
+                          {renderStars((barber as any).rating)}
                         </View>
-                        <Text style={styles.ratingText}>{barber.rating || 5}/5</Text>
+                        <Text style={styles.ratingText}>{(barber as any).rating || 5}/5</Text>
                       </View>
                       
                       <View style={styles.specialtiesContainer}>
-                        {(barber.specialties || []).slice(0, 2).map((specialty, index) => (
+                        {((barber as any).specialties || []).slice(0, 2).map((specialty: string, index: number) => (
                           <View key={index} style={styles.specialtyTag}>
                             <Text style={styles.specialtyText}>{specialty}</Text>
                           </View>
                         ))}
-                        {(barber.specialties || []).length > 2 && (
+                        {((barber as any).specialties || []).length > 2 && (
                           <View style={styles.specialtyTag}>
-                            <Text style={styles.specialtyText}>+{(barber.specialties || []).length - 2}</Text>
+                            <Text style={styles.specialtyText}>+{((barber as any).specialties || []).length - 2}</Text>
                           </View>
                         )}
                       </View>
                       
-                      {barber.pricing && Object.keys(barber.pricing).length > 0 && (
+                      {((barber as any).customPrices && Object.keys((barber as any).customPrices).length > 0) && (
                         <View style={styles.customPricingIndicator}>
                           <Text style={styles.customPricingText}>מחירים מותאמים אישית</Text>
                         </View>
@@ -472,7 +516,10 @@ const AdminTeamScreen: React.FC<AdminTeamScreenProps> = ({ onNavigate, onBack })
                     <View style={styles.barberActions}>
                       <TouchableOpacity
                         style={styles.editButton}
-                        onPress={() => openEditModal(barber)}
+                        onPress={() => {
+                          console.log('Edit button pressed for barber:', barber.name);
+                          openEditModal(barber);
+                        }}
                       >
                         <Ionicons name="create" size={20} color="#007bff" />
                       </TouchableOpacity>
@@ -498,11 +545,11 @@ const AdminTeamScreen: React.FC<AdminTeamScreenProps> = ({ onNavigate, onBack })
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
-        <KeyboardAvoidingView 
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <View style={styles.modalContent}>
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView 
+            style={styles.modalContent}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
                 {editingBarber ? t('team.admin.edit_barber') || '' : t('team.admin.add_barber') || ''}
@@ -700,8 +747,8 @@ const AdminTeamScreen: React.FC<AdminTeamScreenProps> = ({ onNavigate, onBack })
                 <Text style={styles.saveButtonText}>{t('common.save')}</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       <ToastMessage
@@ -912,8 +959,8 @@ const styles = StyleSheet.create({
     padding: 24,
     margin: 20,
     width: '90%',
-    maxWidth: 400,
-    maxHeight: '90%',
+    maxWidth: 500,
+    height: '85%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -929,6 +976,7 @@ const styles = StyleSheet.create({
   modalBody: {
     flex: 1,
     marginBottom: 20,
+    minHeight: 400,
   },
   inputGroup: {
     marginBottom: 16,

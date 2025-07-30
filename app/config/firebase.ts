@@ -5,12 +5,13 @@ import { getStorage } from 'firebase/storage';
 
 // Firebase configuration - updated to match google-services.json
 const firebaseConfig = {
-  apiKey: "AIzaSyBh3LrIWAsy6ZgzWVir2rr2L0cktqoMvwc",
-  authDomain: "barber-app-template.firebaseapp.com",
-  projectId: "barber-app-template",
-  storageBucket: "barber-app-template.firebasestorage.app",
-  messagingSenderId: "246646930767",
-  appId: "1:246646930767:android:00325447393d15bdf2193a"
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
@@ -54,22 +55,43 @@ export interface Appointment {
 }
 
 export interface Barber {
-  barberId: string;
+  id?: string;
+  barberId?: string;
+  userId?: string;
   name: string;
   photo?: string;
-  availableSlots: string[];
-  availabilityWindow: {
+  image?: string;
+  photoUrl?: string;
+  phone?: string;
+  whatsapp?: string;
+  isMainBarber?: boolean;
+  experience?: string;
+  bio?: string;
+  rating?: number;
+  specialties?: string[];
+  available?: boolean;
+  availableSlots?: string[];
+  availabilityWindow?: {
     start: string;
     end: string;
+  };
+  customPrices?: {
+    [treatmentId: string]: number;
+  };
+  pricing?: {
+    [treatmentId: string]: number;
   };
 }
 
 export interface Treatment {
-  treatmentId: string;
-  title: string;
-  price: number;
+  id?: string;
+  treatmentId?: string;
+  name?: string;
+  title?: string;
+  price: number; // Default price
   duration: number;
-  image: string;
+  image?: string;
+  description?: string;
 }
 
 export interface GalleryImage {

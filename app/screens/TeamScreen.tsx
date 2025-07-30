@@ -43,10 +43,18 @@ const TeamScreen: React.FC<TeamScreenProps> = ({ onNavigate, onBack }) => {
   const loadBarbers = async () => {
     try {
       const barbersData = await getBarbers();
-      setBarbers(barbersData);
+      // Sort barbers: main barber (רן) first, then others
+      const sortedBarbers = barbersData.sort((a, b) => {
+        if (a.isMainBarber) return -1;
+        if (b.isMainBarber) return 1;
+        if (a.name === 'רן אגלריסי') return -1;
+        if (b.name === 'רן אגלריסי') return 1;
+        return a.name.localeCompare(b.name);
+      });
+      setBarbers(sortedBarbers);
       // Initialize animation values for each barber
       const animatedValues: {[key: string]: Animated.Value} = {};
-      barbersData.forEach(barber => {
+      sortedBarbers.forEach(barber => {
         animatedValues[barber.id] = new Animated.Value(0);
       });
       setFlippedCards(animatedValues);

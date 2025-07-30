@@ -14,6 +14,13 @@
       "googleServicesFile": "./app/GoogleService-Info.plist",
       "config": {
         "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSCameraUsageDescription": "האפליקציה צריכה גישה למצלמה כדי לצלם תמונות פרופיל ולהעלות תמונות לגלריית המספרה",
+        "NSPhotoLibraryUsageDescription": "האפליקציה צריכה גישה לגלריה כדי לבחור תמונות פרופיל ולהעלות תמונות למספרה",
+        "NSContactsUsageDescription": "האפליקציה צריכה גישה לאנשי הקשר כדי לאפשר שיתוף פרטי המספרה בקלות",
+        "NSLocationWhenInUseUsageDescription": "האפליקציה צריכה גישה למיקום כדי להראות לך כיוונים למספרה ולספק שירות טוב יותר",
+        "NSUserNotificationsUsageDescription": "האפליקציה צריכה גישה להתראות כדי לעדכן אותך על התורים שלך ולשלוח התראות חשובות מהמספרה"
       }
     },
     "android": {
@@ -35,8 +42,8 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "image": "./assets/images/splash.png",
+          "imageWidth": 300,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
@@ -46,9 +53,6 @@
       [
         "expo-build-properties",
         {
-          "android": {
-            "usesCleartextTraffic": true
-          },
           "ios": {
             "useFrameworks": "static",
             "modularHeaders": true
@@ -60,10 +64,7 @@
       "typedRoutes": true
     },
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "229bec8c-f551-41b7-8e6b-e8e26fb31945"
-      }
+      "router": {}
     },
     "owner": "orel895"
   }

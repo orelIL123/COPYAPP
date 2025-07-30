@@ -5,6 +5,7 @@ import { collection, doc, getDoc, getDocs, getFirestore, query, where } from 'fi
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
@@ -57,6 +58,7 @@ const NeonButton: React.FC<{
 function HomeScreen({ onNavigate }: HomeScreenProps) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
+  const [imagesLoading, setImagesLoading] = useState(true); // Add loading state for images
   const [sideMenuVisible, setSideMenuVisible] = useState(false);
   const [notificationPanelVisible, setNotificationPanelVisible] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
@@ -77,6 +79,29 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
   const [aboutUsMessage, setAboutUsMessage] = useState('ברוכים הבאים ל-Barbers Bar! כאן תיהנו מחוויה אישית, מקצועית ומפנקת, עם יחס חם לכל לקוח. רן אגלריסי, בעל ניסיון של שנים בתחום, מזמין אתכם להתרווח, להתחדש ולהרגיש בבית.');
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState('');
+  const [notifications, setNotifications] = useState([
+    {
+      id: '1',
+      title: 'תור חדש',
+      message: 'התור שלך ליום רביעי 15.1.2024 בשעה 14:00 אושר',
+      time: '2024-01-10T10:30:00',
+      type: 'appointment'
+    },
+    {
+      id: '2', 
+      title: 'הודעה מהספר',
+      message: 'שלום! הזכרתי לך שיש לך תור מחר בשעה 15:00. נתראה!',
+      time: '2024-01-09T16:45:00',
+      type: 'message'
+    },
+    {
+      id: '3',
+      title: 'תור בוטל',
+      message: 'התור שלך ליום שני 13.1.2024 בוטל. אנא קבע תור חדש',
+      time: '2024-01-08T09:15:00',
+      type: 'cancellation'
+    }
+  ]);
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -96,14 +121,8 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
   console.log('Gallery images from Firebase:', settingsImages.gallery);
   console.log('Gallery length:', settingsImages.gallery.length);
   
-  // Always show gallery with test data if no Firebase images
-  const testImages = [
-    'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400',
-    'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=400',
-    'https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400'
-  ];
-  
-  const originalImages = settingsImages.gallery.length > 0 ? settingsImages.gallery : testImages;
+  // Only show gallery if we have Firebase images and they're loaded
+  const originalImages = settingsImages.gallery.length > 0 ? settingsImages.gallery : [];
 
   // Create infinite scroll data by duplicating images
   const infiniteImages = originalImages.length > 0 ? [...originalImages, ...originalImages, ...originalImages] : [];
@@ -223,6 +242,7 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
   useEffect(() => {
     InteractionManager.runAfterInteractions(() => {
       fetchImages();
+      fetchMessages();
     });
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setIsAuthenticated(!!user);
@@ -329,6 +349,33 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
         gallery: [],
         aboutUsBottom: '',
       });
+    } finally {
+      setImagesLoading(false); // Mark images as loaded
+    }
+  };
+
+  // Fetch messages from Firebase settings
+  const fetchMessages = async () => {
+    try {
+      const db = getFirestore();
+      
+      // Load welcome messages
+      const welcomeDoc = await getDoc(doc(db, 'settings', 'homeMessages'));
+      if (welcomeDoc.exists()) {
+        const data = welcomeDoc.data();
+        setWelcomeMessage(data.welcome || 'ברוכים הבאים ל-Barbers Bar!');
+        setSubtitleMessage(data.subtitle || 'המספרה המקצועית שלך');
+      }
+
+      // Load about us text
+      const aboutDoc = await getDoc(doc(db, 'settings', 'aboutUsText'));
+      if (aboutDoc.exists()) {
+        const data = aboutDoc.data();
+        setAboutUsMessage(data.text || 'ברוכים הבאים ל-Barbers Bar! כאן תיהנו מחוויה אישית, מקצועית ומפנקת, עם יחס חם לכל לקוח. רן אגלריסי, בעל ניסיון של שנים בתחום, מזמין אתכם להתרווח, להתחדש ולהרגיש בבית.');
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      // Keep default messages if loading fails
     }
   };
 
@@ -496,7 +543,11 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
         const apt = appointmentDetails[0];
         const appointmentInfo = `📅 ${formatDate(apt.date)}\n📋 ${apt.treatmentName}\n👤 ${apt.barberName}\n✅ ${getStatusText(apt.status)}`;
         
-        const alertButtons = [
+        const alertButtons: Array<{
+          text: string;
+          onPress?: () => void;
+          style?: 'default' | 'cancel' | 'destructive';
+        }> = [
           { 
             text: '📋 הזמן תור חדש', 
             onPress: () => onNavigate('booking')
@@ -558,7 +609,11 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
                   return;
                 }
 
-                const cancelOptions = cancellableAppointments.map((apt) => ({
+                const cancelOptions: Array<{
+                  text: string;
+                  onPress?: () => void;
+                  style?: 'default' | 'cancel' | 'destructive';
+                }> = cancellableAppointments.map((apt) => ({
                   text: `${formatDate(apt.date)} - ${apt.treatmentName}`,
                   onPress: () => {
                     Alert.alert(
@@ -611,6 +666,70 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
     Linking.openURL(`tel:${phoneNumber}`);
   };
 
+  const handleNotificationPress = () => {
+    setNotificationPanelVisible(true);
+  };
+
+  const handleWazePress = () => {
+    // Waze coordinates for Barbers Bar location - רפיח ים 13, תל אביב
+    const latitude = 32.0853; // רפיח ים 13, תל אביב
+    const longitude = 34.7818; // רפיח ים 13, תל אביב
+    const label = 'Barbers Bar - רפיח ים 13, תל אביב';
+    const url = `waze://?ll=${latitude},${longitude}&navigate=yes&name=${encodeURIComponent(label)}`;
+    
+    Linking.canOpenURL(url).then(supported => {
+      if (supported) {
+        Linking.openURL(url);
+      } else {
+        // Fallback to App Store if Waze is not installed
+        Linking.openURL('https://apps.apple.com/app/waze/id323229106');
+      }
+    });
+  };
+
+  const handleOrelWhatsAppPress = () => {
+    const phoneNumber = '0523985505';
+    const message = 'שלום! אני מעוניין באפליקציה לעסק שלי';
+    const url = `whatsapp://send?phone=972${phoneNumber.replace('0', '')}&text=${encodeURIComponent(message)}`;
+    
+    Linking.canOpenURL(url).then(supported => {
+      if (supported) {
+        Linking.openURL(url);
+      } else {
+        // Fallback to WhatsApp web or App Store
+        Linking.openURL('https://wa.me/972523985505?text=' + encodeURIComponent(message));
+      }
+    });
+  };
+
+  const handleBarberWhatsAppPress = () => {
+    const phoneNumber = '0548353232'; // מספר הטלפון של הספר
+    const message = 'שלום! אני מעוניין לקבוע תור';
+    const url = `whatsapp://send?phone=972${phoneNumber.replace('0', '')}&text=${encodeURIComponent(message)}`;
+    
+    Linking.canOpenURL(url).then(supported => {
+      if (supported) {
+        Linking.openURL(url);
+      } else {
+        // Fallback to WhatsApp web or App Store
+        Linking.openURL('https://wa.me/972548353232?text=' + encodeURIComponent(message));
+      }
+    });
+  };
+
+  const handleInstagramPress = () => {
+    const instagramUrl = 'https://www.instagram.com/ran_algrisi15?igsh=MWdyZHV4cmRwZ3kzeQ==';
+    
+    Linking.canOpenURL(instagramUrl).then(supported => {
+      if (supported) {
+        Linking.openURL(instagramUrl);
+      } else {
+        // Fallback to web browser
+        Linking.openURL(instagramUrl);
+      }
+    });
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -621,7 +740,11 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <TopNav title="Barbers Bar" onMenuPress={() => setSideMenuVisible(true)} />
+      <TopNav 
+        title="Barbers Bar" 
+        onMenuPress={() => setSideMenuVisible(true)}
+        onBellPress={handleNotificationPress}
+      />
       
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Hero Section */}
@@ -713,41 +836,48 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
           <Animated.View style={[styles.gallerySection, { opacity: cardsFade }]}>
               <Text style={styles.sectionTitle}>{t('home.gallery')}</Text>
               <View style={styles.carousel3DContainer}>
-                <Animated.ScrollView 
-                  ref={carousel3DRef}
-                  horizontal 
-                  showsHorizontalScrollIndicator={false} 
-                  contentContainerStyle={styles.carousel3DContent}
-                  pagingEnabled={false}
-                  decelerationRate="normal"
-                  onScroll={Animated.event(
-                    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-                    { useNativeDriver: false, listener: handleScroll }
-                  )}
-                  scrollEventThrottle={16}
-                >
-                  {infiniteImages.map((img, index) => (
-                    <Animated.View 
-                      key={`gallery-${index}`} 
-                      style={[
-                        styles.carousel3DCard,
-                        getCardTransform(index, scrollX),
-                      ]}
-                    >
-                      <Image
-                        source={{ uri: img }}
-                        style={styles.carousel3DImage}
-                        resizeMode="cover"
-                      />
-                      <View style={styles.carousel3DOverlay}>
-                        <LinearGradient
-                          colors={['transparent', 'rgba(0,0,0,0.8)']}
-                          style={styles.carousel3DGradient}
+                {imagesLoading || infiniteImages.length === 0 ? (
+                  <View style={styles.galleryLoadingContainer}>
+                    <ActivityIndicator size="large" color="#3b82f6" />
+                    <Text style={styles.galleryLoadingText}>טוען גלריה...</Text>
+                  </View>
+                ) : (
+                  <Animated.ScrollView 
+                    ref={carousel3DRef}
+                    horizontal 
+                    showsHorizontalScrollIndicator={false} 
+                    contentContainerStyle={styles.carousel3DContent}
+                    pagingEnabled={false}
+                    decelerationRate="normal"
+                    onScroll={Animated.event(
+                      [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+                      { useNativeDriver: false, listener: handleScroll }
+                    )}
+                    scrollEventThrottle={16}
+                  >
+                    {infiniteImages.map((img, index) => (
+                      <Animated.View 
+                        key={`gallery-${index}`} 
+                        style={[
+                          styles.carousel3DCard,
+                          getCardTransform(index, scrollX),
+                        ]}
+                      >
+                        <Image
+                          source={{ uri: img }}
+                          style={styles.carousel3DImage}
+                          resizeMode="cover"
                         />
-                      </View>
-                    </Animated.View>
-                  ))}
-                </Animated.ScrollView>
+                        <View style={styles.carousel3DOverlay}>
+                          <LinearGradient
+                            colors={['transparent', 'rgba(0,0,0,0.8)']}
+                            style={styles.carousel3DGradient}
+                          />
+                        </View>
+                      </Animated.View>
+                    ))}
+                  </Animated.ScrollView>
+                )}
               </View>
           </Animated.View>
           {/* About Us Section */}
@@ -784,7 +914,7 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
           <Animated.View style={[styles.socialSection, { opacity: cardsFade }]}>
             <Text style={styles.sectionTitle}>עקבו אחרינו</Text>
             <View style={styles.socialContainer}>
-              <TouchableOpacity style={styles.socialButton}>
+              <TouchableOpacity style={styles.socialButton} onPress={handleInstagramPress}>
                 <Ionicons name="logo-instagram" size={28} color="#E4405F" />
                 <Text style={styles.socialText}>Instagram</Text>
               </TouchableOpacity>
@@ -792,11 +922,26 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
                 <Ionicons name="logo-facebook" size={28} color="#1877F2" />
                 <Text style={styles.socialText}>Facebook</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.socialButton}>
+              <TouchableOpacity style={styles.socialButton} onPress={handleBarberWhatsAppPress}>
                 <Ionicons name="logo-whatsapp" size={28} color="#25D366" />
                 <Text style={styles.socialText}>WhatsApp</Text>
               </TouchableOpacity>
             </View>
+          </Animated.View>
+
+          {/* Waze Navigation */}
+          <Animated.View style={[styles.wazeSection, { opacity: cardsFade }]}>
+            <Text style={styles.sectionTitle}>נווט אלינו</Text>
+            <TouchableOpacity style={styles.wazeButton} onPress={handleWazePress}>
+              <LinearGradient
+                colors={['#33CCFF', '#0099CC']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.wazeGradient}
+              />
+              <Ionicons name="navigate" size={32} color="#ffffff" />
+              <Text style={styles.wazeText}>נווט עם Waze</Text>
+            </TouchableOpacity>
           </Animated.View>
 
           {/* Contact Section */}
@@ -815,7 +960,7 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
               </View>
               <View style={styles.contactItem}>
                 <Ionicons name="location" size={20} color="#3b82f6" />
-                <Text style={styles.contactText}>רפיח ים 13</Text>
+                <Text style={styles.contactText}>{require('../../constants/contactInfo').CONTACT_INFO.displayAddress}</Text>
               </View>
               <View style={styles.contactItem}>
                 <Ionicons name="time" size={20} color="#3b82f6" />
@@ -830,15 +975,73 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
               <Text style={styles.termsText}>תנאי שימוש</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Orel Aharon Signature */}
+          <View style={styles.orelSection}>
+            <Text style={styles.orelText}>Powered by</Text>
+            <TouchableOpacity onPress={handleOrelWhatsAppPress} style={styles.orelButton}>
+              <Text style={styles.orelName}>Orel Aharon</Text>
+            </TouchableOpacity>
+            <Text style={styles.orelSubtext}>רוצה אפליקציה כזו לעסק שלך?</Text>
+          </View>
         </View>
       </ScrollView>
 
-      <SideMenu
-        visible={sideMenuVisible}
+      {/* Side Menu */}
+      <SideMenu 
+        visible={sideMenuVisible} 
         onClose={() => setSideMenuVisible(false)}
         onNavigate={onNavigate}
       />
-      
+
+      {/* Notification Panel */}
+      {notificationPanelVisible && (
+        <View style={styles.notificationOverlay}>
+          <View style={styles.notificationPanel}>
+            <View style={styles.notificationHeader}>
+              <Text style={styles.notificationTitle}>התראות</Text>
+              <TouchableOpacity 
+                onPress={() => setNotificationPanelVisible(false)}
+                style={styles.notificationCloseButton}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.notificationList}>
+              {notifications.map((notification) => (
+                <View key={notification.id} style={styles.notificationItem}>
+                  <View style={styles.notificationIcon}>
+                    {notification.type === 'appointment' && (
+                      <Ionicons name="calendar" size={20} color="#3b82f6" />
+                    )}
+                    {notification.type === 'message' && (
+                      <Ionicons name="chatbubble" size={20} color="#10b981" />
+                    )}
+                    {notification.type === 'cancellation' && (
+                      <Ionicons name="close-circle" size={20} color="#ef4444" />
+                    )}
+                  </View>
+                  <View style={styles.notificationContent}>
+                    <Text style={styles.notificationItemTitle}>{notification.title}</Text>
+                    <Text style={styles.notificationItemMessage}>{notification.message}</Text>
+                    <Text style={styles.notificationItemTime}>
+                      {new Date(notification.time).toLocaleDateString('he-IL', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      )}
+
       {/* Terms Modal */}
       {showTerms && (
         <View style={styles.modalOverlay}>
@@ -895,8 +1098,8 @@ function HomeScreen({ onNavigate }: HomeScreenProps) {
                 • עדכונים יפורסמו באפליקציה{'\n'}
                 • המשך השימוש מהווה הסכמה לתנאים המעודכנים{'\n\n'}
                 
-                <Text style={styles.contactInfo}>
-                  לשאלות או בקשות: רפיח ים 13, טלפון: 054-2280222{'\n'}
+                <Text style={styles.contactInfoText}>
+                  {require('../../constants/contactInfo').CONTACT_INFO.contactText}{'\n'}
                   מייל: info@barbersbar.co.il
                 </Text>
               </Text>
@@ -1326,13 +1529,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ffffff',
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginTop: 15,
-    marginBottom: 10,
-  },
   subsectionTitle: {
     fontSize: 16,
     fontWeight: '600',
@@ -1340,11 +1536,164 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 5,
   },
-  contactInfo: {
+  contactInfoText: {
     fontSize: 14,
     color: '#666666',
     textAlign: 'center',
     marginTop: 15,
+  },
+  galleryLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 50,
+  },
+  galleryLoadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  notificationOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end', // Align to the bottom
+    zIndex: 1000,
+  },
+  notificationPanel: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 15,
+    width: '100%',
+  },
+  notificationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  notificationTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  notificationCloseButton: {
+    padding: 5,
+  },
+  notificationList: {
+    maxHeight: 300, // Limit height for scrolling
+  },
+  notificationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  notificationIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  notificationContent: {
+    flex: 1,
+  },
+  notificationItemTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginBottom: 3,
+  },
+  notificationItemMessage: {
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 3,
+  },
+  notificationItemTime: {
+    fontSize: 12,
+    color: '#999999',
+  },
+  wazeSection: {
+    marginTop: 15,
+    paddingVertical: 8,
+  },
+  wazeButton: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 100,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  wazeGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 20,
+  },
+  wazeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333333',
+    marginTop: 6,
+  },
+  orelSection: {
+    alignItems: 'center',
+    marginTop: 20,
+    paddingVertical: 10,
+  },
+  orelText: {
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 5,
+  },
+  orelButton: {
+    backgroundColor: '#25D366',
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 150,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  orelName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  orelSubtext: {
+    fontSize: 12,
+    color: '#666666',
+    marginTop: 5,
   },
 });
 

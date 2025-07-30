@@ -20,6 +20,7 @@ import {
     createAppointment,
     getBarberAppointmentsForDay,
     getBarberAvailability,
+    getBarberByUserId,
     getBarbers,
     getCurrentUser,
     getTreatments,
@@ -48,6 +49,7 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ onNavigate, onBack, onClo
   const [selectedBarber, setSelectedBarber] = useState<Barber | null>(null);
   const [selectedTreatment, setSelectedTreatment] = useState<Treatment | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [currentUserBarber, setCurrentUserBarber] = useState<Barber | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   
   const [barbers, setBarbers] = useState<Barber[]>([]);
@@ -75,6 +77,17 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ onNavigate, onBack, onClo
       
       setBarbers(barbersData);
       setTreatments(treatmentsData);
+      
+      // Check if current user is a barber
+      try {
+        const currentUser = await getCurrentUser();
+        if (currentUser) {
+          const userBarber = await getBarberByUserId(currentUser.uid);
+          setCurrentUserBarber(userBarber);
+        }
+      } catch (error) {
+        console.log('User is not a barber or not logged in');
+      }
       
       // If barber is pre-selected, set it and skip to next step
       if (preSelectedBarberId) {
@@ -194,81 +207,33 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ onNavigate, onBack, onClo
       const dayAvailability = barberAvailability.find(a => a.dayOfWeek === dayOfWeek);
       
       if (!dayAvailability || !dayAvailability.isAvailable) {
-        console.log('❌ Barber not available on this day, using default hours');
-        // Use default working hours if no availability is set
-        const defaultStartHour = 9;
-        const defaultEndHour = 18;
-        
-        // Skip if it's Friday (5) or Saturday (6)
-        if (dayOfWeek === 5 || dayOfWeek === 6) {
-          console.log('❌ Weekend day, no default hours');
-          return [];
-        }
-        
-        // Use default hours for weekdays
-        const appointments = await getBarberAppointmentsForDay(barberId, date);
-        console.log('Found', appointments.length, 'appointments for this day');
-        
-        const slots = [];
-        
-        // Generate time slots with default hours
-        const startTime = new Date(date);
-        startTime.setHours(defaultStartHour, 0, 0, 0);
-        
-        const endTime = new Date(date);
-        endTime.setHours(defaultEndHour, 0, 0, 0);
-        
-        const currentSlot = new Date(startTime);
-        
-        while (currentSlot < endTime) {
-          const slotEnd = new Date(currentSlot.getTime() + treatmentDuration * 60000);
-          if (slotEnd > endTime) {
-            break;
-          }
-          
-          // Skip past times if it's today
-          const now = new Date();
-          if (date.toDateString() === now.toDateString() && currentSlot <= now) {
-            currentSlot.setMinutes(currentSlot.getMinutes() + treatmentDuration);
-            continue;
-          }
-          
-          if (isSlotAvailable(currentSlot, treatmentDuration, appointments)) {
-            slots.push(new Date(currentSlot));
-          }
-          
-          currentSlot.setMinutes(currentSlot.getMinutes() + treatmentDuration);
-        }
-        
-        console.log('Generated default slots:', slots.length);
-        return slots;
+        console.log('❌ Barber not available on this day');
+        return [];
       }
       
-      console.log('📅 Barber availability:', dayAvailability.startTime, 'to', dayAvailability.endTime);
-      if (dayAvailability.hasBreak) {
-        console.log('🛑 Break time:', dayAvailability.breakStartTime, 'to', dayAvailability.breakEndTime);
-      }
+      console.log('✅ Barber is available on this day');
+      console.log('Available hours:', dayAvailability.startTime, '-', dayAvailability.endTime);
       
+      // Get appointments for this day
       const appointments = await getBarberAppointmentsForDay(barberId, date);
       console.log('Found', appointments.length, 'appointments for this day');
       
       const slots = [];
       
-      // Parse barber's working hours
-      const [startHour, startMin] = dayAvailability.startTime.split(':').map(Number);
-      const [endHour, endMin] = dayAvailability.endTime.split(':').map(Number);
+      // Parse the barber's working hours for this day
+      const [startHour, startMinute] = dayAvailability.startTime.split(':').map(Number);
+      const [endHour, endMinute] = dayAvailability.endTime.split(':').map(Number);
       
-      // Generate time slots every [treatmentDuration] minutes within working hours
+      // Generate time slots based on barber's actual availability
       const startTime = new Date(date);
-      startTime.setHours(startHour, startMin, 0, 0);
+      startTime.setHours(startHour, startMinute, 0, 0);
       
       const endTime = new Date(date);
-      endTime.setHours(endHour, endMin, 0, 0);
+      endTime.setHours(endHour, endMinute, 0, 0);
       
       const currentSlot = new Date(startTime);
       
       while (currentSlot < endTime) {
-        // Check if slot + treatment duration fits within working hours
         const slotEnd = new Date(currentSlot.getTime() + treatmentDuration * 60000);
         if (slotEnd > endTime) {
           break;
@@ -281,12 +246,6 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ onNavigate, onBack, onClo
           continue;
         }
         
-        // Check if slot is during break time
-        if (isSlotDuringBreak(currentSlot, treatmentDuration, dayAvailability)) {
-          currentSlot.setMinutes(currentSlot.getMinutes() + treatmentDuration);
-          continue;
-        }
-        
         if (isSlotAvailable(currentSlot, treatmentDuration, appointments)) {
           slots.push(new Date(currentSlot));
         }
@@ -294,12 +253,10 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ onNavigate, onBack, onClo
         currentSlot.setMinutes(currentSlot.getMinutes() + treatmentDuration);
       }
       
-      console.log('Generated', slots.length, 'available time slots');
-      console.log('Available times:', slots.map(s => `${s.getHours()}:${s.getMinutes().toString().padStart(2, '0')}`));
-      
+      console.log('Generated slots:', slots.length);
       return slots;
     } catch (error) {
-      console.error('Error generating available slots:', error);
+      console.error('Error generating time slots:', error);
       return [];
     }
   }
@@ -320,10 +277,8 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ onNavigate, onBack, onClo
       const date = new Date(today);
       date.setDate(today.getDate() + i);
       
-      // Skip Fridays (5) and Saturdays (6)
-      if (date.getDay() !== 5 && date.getDay() !== 6) {
-        dates.push(date);
-      }
+      // Include all days - let barber availability determine what's bookable
+      dates.push(date);
     }
     
     return dates;
@@ -731,7 +686,18 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ onNavigate, onBack, onClo
                       <Text style={styles.treatmentName}>{treatment.name}</Text>
                       <Text style={styles.treatmentDescription}>{treatment.description}</Text>
                       <View style={styles.treatmentDetails}>
-                        <Text style={styles.treatmentPrice}>{t('booking.price', { price: treatment.price })}</Text>
+                        <Text style={styles.treatmentPrice}>
+                          {(() => {
+                            // If current user is a barber, only show their own prices
+                            if (currentUserBarber && selectedBarber && selectedBarber.id !== currentUserBarber.id) {
+                              return "מחיר לפי בחירת ספר";
+                            }
+                            
+                            // Show the actual price
+                            const customPrice = selectedBarber?.customPrices?.[treatment.treatmentId || treatment.id];
+                            return customPrice ? `₪${customPrice}` : `₪${treatment.price}`;
+                          })()}
+                        </Text>
                         <Text style={styles.treatmentDuration}>{t('booking.duration', { duration: treatment.duration })}</Text>
                       </View>
                     </View>

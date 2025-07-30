@@ -34,6 +34,7 @@ export default function AuthChoiceScreen() {
           />
           <Text style={styles.appName}>Barbers Bar</Text>
           <Text style={styles.tagline}>המספרה המקצועית שלך</Text>
+          <Text style={styles.authInfo}>התחברות עם אימייל או מספר טלפון</Text>
         </View>
 
         {/* Auth Buttons Section */}
@@ -91,6 +92,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#666666',
     textAlign: 'center',
+  },
+  authInfo: {
+    fontSize: 14,
+    color: '#888888',
+    textAlign: 'center',
+    marginTop: 8,
   },
   authSection: {
     width: '100%',

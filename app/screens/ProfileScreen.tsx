@@ -15,8 +15,10 @@ import {
 } from 'react-native';
 import {
     Appointment,
+    Barber,
     checkPhoneUserExists,
     createUserProfileFromAuth,
+    getBarberByUserId,
     getUserAppointments,
     getUserProfile,
     loginUser,
@@ -27,7 +29,9 @@ import {
     registerUserWithPhone,
     sendSMSVerification,
     setPasswordForPhoneUser,
+    updateBarberProfile,
     updateUserProfile,
+    uploadImageToStorage,
     UserProfile,
     verifySMSCode
 } from '../../services/firebase';
@@ -44,6 +48,7 @@ interface ProfileScreenProps {
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate, onBack }) => {
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [barberProfile, setBarberProfile] = useState<Barber | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showLoginForm, setShowLoginForm] = useState(false);
@@ -78,6 +83,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate, onBack }) => 
           profile = await getUserProfile(currentUser.uid);
         }
         setUserProfile(profile);
+        
+        // Check if user is a barber
+        const barber = await getBarberByUserId(currentUser.uid);
+        setBarberProfile(barber);
+        
         const userAppointments = await getUserAppointments(currentUser.uid);
         setAppointments(userAppointments);
         setDisplayName(profile?.displayName || '');

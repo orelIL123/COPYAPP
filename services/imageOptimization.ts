@@ -94,9 +94,10 @@ export class ImageOptimizer {
     preset: keyof typeof ImageOptimizer.PRESETS = 'GALLERY'
   ): Promise<string | null> {
     try {
-      // Request permissions
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permissionResult.granted) {
+      // Request permissions with explanation
+      const { requestMediaLibraryPermission } = await import('./permissions');
+      const hasPermission = await requestMediaLibraryPermission();
+      if (!hasPermission) {
         throw new Error('Gallery permission denied');
       }
 
@@ -140,9 +141,10 @@ export class ImageOptimizer {
     preset: keyof typeof ImageOptimizer.PRESETS = 'GALLERY'
   ): Promise<string | null> {
     try {
-      // Request permissions
-      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permissionResult.granted) {
+      // Request permissions with explanation
+      const { requestCameraPermission } = await import('./permissions');
+      const hasPermission = await requestCameraPermission();
+      if (!hasPermission) {
         throw new Error('Camera permission denied');
       }
 

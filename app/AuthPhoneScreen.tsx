@@ -167,7 +167,7 @@ export default function AuthPhoneScreen() {
         </View>
 
         <Text style={styles.subtitle}>
-          {isRegisterMode ? 'הרשמה עם אימייל' : 'התחברות עם אימייל או טלפון'}
+          {isRegisterMode ? 'הרשמה עם אימייל או טלפון' : 'התחברות עם אימייל או טלפון'}
         </Text>
         
         <View style={styles.inputContainer}>
@@ -176,12 +176,15 @@ export default function AuthPhoneScreen() {
             style={styles.input}
             value={emailOrPhone}
             onChangeText={setEmailOrPhone}
-            placeholder="user@example.com או 0501234567"
+            placeholder="הזן אימייל או מספר טלפון"
             placeholderTextColor="#999"
             autoCapitalize="none"
             textAlign="left"
             keyboardType="email-address"
           />
+          <Text style={styles.helperText}>
+            ניתן להזין אימייל (user@example.com) או מספר טלפון (0501234567)
+          </Text>
         </View>
 
         <View style={styles.inputContainer}>
@@ -292,6 +295,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#1a1a1a',
     marginBottom: 8,
+  },
+  helperText: {
+    fontSize: 12,
+    color: '#888888',
+    marginTop: 4,
+    textAlign: 'center',
   },
   input: {
     height: 56,
