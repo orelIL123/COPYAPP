@@ -1,31 +1,30 @@
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import {
-  createUserWithEmailAndPassword,
-  EmailAuthProvider,
-  linkWithCredential,
-  onAuthStateChanged,
-  PhoneAuthProvider,
-  signInWithCredential,
-  signInWithEmailAndPassword,
-  signInWithPhoneNumber,
-  signOut,
-  updateProfile,
-  User
+    createUserWithEmailAndPassword,
+    EmailAuthProvider,
+    linkWithCredential,
+    onAuthStateChanged,
+    PhoneAuthProvider,
+    signInWithCredential,
+    signInWithEmailAndPassword,
+    signOut,
+    updateProfile,
+    User
 } from 'firebase/auth';
 import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  orderBy,
-  query,
-  setDoc,
-  Timestamp,
-  updateDoc,
-  where
+    addDoc,
+    collection,
+    deleteDoc,
+    doc,
+    getDoc,
+    getDocs,
+    orderBy,
+    query,
+    setDoc,
+    Timestamp,
+    updateDoc,
+    where
 } from 'firebase/firestore';
 import { deleteObject, getDownloadURL, listAll, ref, uploadBytes } from 'firebase/storage';
 import { auth, db, storage } from '../config/firebase';
@@ -279,7 +278,7 @@ export const onAuthStateChange = (callback: (user: User | null) => void) => {
   return onAuthStateChanged(auth, callback);
 };
 
-// Phone authentication functions
+// Phone authentication functions using Vonage SMS
 export const sendSMSVerification = async (phoneNumber: string) => {
   try {
     // The phone number should be in international format
@@ -294,95 +293,36 @@ export const sendSMSVerification = async (phoneNumber: string) => {
       }
     }
     
-    console.log('📱 Sending real SMS to:', formattedPhone);
-    
+    console.log('📱 Sending Vonage SMS to:', formattedPhone);
+
     // Generate verification code
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    console.log('🔐 Generated code:', verificationCode, 'for', formattedPhone);
-
+    
     try {
-      // Try to send real SMS using a free SMS API
-      const smsResponse = await fetch('https://api.textlocal.in/send/', {
+      // Call Firebase Function to send SMS via Vonage
+      const projectId = process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID;
+      const response = await fetch(`https://us-central1-${projectId}.cloudfunctions.net/sendSMS`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
         },
-        body: new URLSearchParams({
-          apikey: 'YOUR_API_KEY', // You need to get this from textlocal.in
-          numbers: formattedPhone,
-          message: `קוד האימות שלך: ${verificationCode}`,
-          sender: 'Barbers Bar'
-        })
+        body: JSON.stringify({
+          phoneNumber: formattedPhone,
+          code: verificationCode,
+          message: 'קוד האימות שלך הוא: '
+        }),
       });
 
-      console.log('📱 SMS API Response status:', smsResponse.status);
+      const result = await response.json();
       
-      // Even if SMS fails, continue with the flow (for development)
-      const result = {
-        verificationId: 'sms-' + Date.now(),
-        _generatedCode: verificationCode,
-        confirm: async (inputCode: string) => {
-          console.log('🔍 Verifying code:', inputCode, 'against:', verificationCode);
-          
-          if (inputCode === verificationCode) {
-            console.log('✅ SMS verification successful');
-            return { 
-              user: { 
-                uid: 'user-' + formattedPhone.replace(/[^0-9]/g, ''), 
-                phoneNumber: formattedPhone,
-                displayName: null,
-                email: null
-              } 
-            };
-          }
-          throw new Error('קוד האימות שגוי');
-        }
-      };
-
-      if (smsResponse.ok) {
-        console.log('✅ Real SMS sent successfully to:', formattedPhone);
-      } else {
-        console.log('⚠️ SMS API failed, using development mode');
-      }
-
-      return result;
-      
-    } catch (smsError: any) {
-      console.log('⚠️ SMS service failed, trying Firebase Auth:', smsError.message);
-      
-      try {
-        // Fallback to Firebase's built-in SMS verification
-        const confirmationResult = await signInWithPhoneNumber(auth, formattedPhone);
-        console.log('✅ SMS sent successfully via Firebase Auth to:', formattedPhone);
+      if (result.success) {
+        console.log('✅ Vonage SMS sent successfully to:', formattedPhone);
         
         return {
-          verificationId: confirmationResult.verificationId,
-          confirm: async (inputCode: string) => {
-            try {
-              console.log('🔍 Verifying code via Firebase Auth:', inputCode);
-              const result = await confirmationResult.confirm(inputCode);
-              console.log('✅ Firebase Auth SMS verification successful');
-              return result;
-            } catch (error) {
-              console.error('❌ Firebase Auth SMS verification failed:', error);
-              throw new Error('קוד האימות שגוי');
-            }
-          }
-        };
-        
-      } catch (firebaseError: any) {
-        console.log('⚠️ Firebase Auth SMS also failed, using fallback method:', firebaseError.message);
-        
-        // Fallback: Generate code and log it (for development/testing)
-        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-        console.log('🔐 Generated fallback code:', verificationCode, 'for', formattedPhone);
-        
-        // Store the code temporarily for verification
-        const fallbackResult = {
-          verificationId: 'fallback-' + Date.now(),
+          verificationId: result.verificationId,
           _generatedCode: verificationCode,
           confirm: async (inputCode: string) => {
-            console.log('🔍 Verifying fallback code:', inputCode, 'against:', verificationCode);
+            console.log('🔍 Verifying code:', inputCode, 'against:', verificationCode);
             
             if (inputCode === verificationCode) {
               // Create successful verification result
@@ -398,15 +338,37 @@ export const sendSMSVerification = async (phoneNumber: string) => {
             throw new Error('קוד האימות שגוי');
           }
         };
-        
-        // In development, show the code to user for testing
-        if (typeof __DEV__ !== 'undefined' && __DEV__) {
-          // For development only - show the code in an alert
-          console.log('📱 DEV MODE: SMS code is:', verificationCode);
-        }
-        
-        return fallbackResult;
+      } else {
+        throw new Error(result.error || 'Failed to send SMS');
       }
+      
+    } catch (smsError: any) {
+      console.error('⚠️ Vonage SMS failed:', smsError.message);
+      
+      // Development fallback - just log the code
+      console.log('🔐 DEVELOPMENT: SMS code for', formattedPhone, 'is:', verificationCode);
+      
+      const fallbackResult = {
+        verificationId: 'dev-' + Date.now(),
+        _generatedCode: verificationCode,
+        confirm: async (inputCode: string) => {
+          console.log('🔍 Verifying dev code:', inputCode, 'against:', verificationCode);
+          
+          if (inputCode === verificationCode) {
+            return { 
+              user: { 
+                uid: 'user-' + formattedPhone.replace(/[^0-9]/g, ''), 
+                phoneNumber: formattedPhone,
+                displayName: null,
+                email: null
+              } 
+            };
+          }
+          throw new Error('קוד האימות שגוי');
+        }
+      };
+
+      return fallbackResult;
     }
   } catch (error) {
     console.error('Error sending SMS:', error);
@@ -420,6 +382,73 @@ export const verifySMSCode = async (confirmationResult: any, verificationCode: s
     return result.user;
   } catch (error) {
     console.error('Error verifying SMS code:', error);
+    throw error;
+  }
+};
+
+// WhatsApp notification functions (for future use)
+export const sendWhatsAppNotification = async (phoneNumber: string, message: string) => {
+  try {
+    // TODO: Implement WhatsApp Business API integration
+    // For now, this is a placeholder for future WhatsApp integration
+    
+    console.log('📱 WhatsApp notification (placeholder):', {
+      phoneNumber,
+      message,
+      status: 'not_implemented_yet'
+    });
+    
+    // Placeholder response
+    return {
+      success: false,
+      message: 'WhatsApp integration not implemented yet',
+      placeholder: true
+    };
+    
+    // Future implementation will use WhatsApp Business API
+    // const whatsappResponse = await fetch('https://graph.facebook.com/v17.0/YOUR_PHONE_NUMBER_ID/messages', {
+    //   method: 'POST',
+    //   headers: {
+    //     'Authorization': 'Bearer YOUR_ACCESS_TOKEN',
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify({
+    //     messaging_product: 'whatsapp',
+    //     to: phoneNumber,
+    //     type: 'text',
+    //     text: { body: message }
+    //   })
+    // });
+    
+  } catch (error) {
+    console.error('Error sending WhatsApp notification:', error);
+    throw error;
+  }
+};
+
+export const sendAppointmentNotification = async (userId: string, appointmentData: any, notificationType: 'sms' | 'whatsapp' | 'both' = 'sms') => {
+  try {
+    const userProfile = await getUserProfile(userId);
+    if (!userProfile) {
+      throw new Error('User profile not found');
+    }
+    
+    const message = `תזכורת לתור: ${appointmentData.treatmentName} ב-${appointmentData.date} בשעה ${appointmentData.time}`;
+    
+    if (notificationType === 'sms' || notificationType === 'both') {
+      // Send SMS notification (existing functionality)
+      await sendNotificationToUser(userId, 'תזכורת לתור', message, { appointmentId: appointmentData.id });
+    }
+    
+    if (notificationType === 'whatsapp' || notificationType === 'both') {
+      // Send WhatsApp notification (future functionality)
+      await sendWhatsAppNotification(userProfile.phone, message);
+    }
+    
+    return { success: true };
+    
+  } catch (error) {
+    console.error('Error sending appointment notification:', error);
     throw error;
   }
 };
@@ -2906,5 +2935,120 @@ export const sendAppointmentCancellationToAdmin = async (appointmentId: string) 
   } catch (error) {
     console.error('Error sending appointment cancellation to admin:', error);
     return false;
+  }
+};
+
+// Business Configuration types
+export interface BusinessConfig {
+  businessId: string;
+  businessName: string;
+  ownerPhone: string;
+  cancelPolicy: {
+    hoursBeforeAppointment: number;
+    message: string;
+  };
+}
+
+// Business Configuration functions
+export const getBusinessConfig = async (businessId: string): Promise<BusinessConfig | null> => {
+  try {
+    const docRef = doc(db, 'businessConfigs', businessId);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      return docSnap.data() as BusinessConfig;
+    } else {
+      console.log('No business config found for ID:', businessId);
+      return null;
+    }
+  } catch (error) {
+    console.error('Error getting business config:', error);
+    throw error;
+  }
+};
+
+export const setBusinessConfig = async (config: BusinessConfig): Promise<void> => {
+  try {
+    const docRef = doc(db, 'businessConfigs', config.businessId);
+    await setDoc(docRef, config);
+    console.log('Business config saved successfully for:', config.businessId);
+  } catch (error) {
+    console.error('Error setting business config:', error);
+    throw error;
+  }
+};
+
+export const updateBusinessConfig = async (businessId: string, updates: Partial<BusinessConfig>): Promise<void> => {
+  try {
+    const docRef = doc(db, 'businessConfigs', businessId);
+    await updateDoc(docRef, updates);
+    console.log('Business config updated successfully for:', businessId);
+  } catch (error) {
+    console.error('Error updating business config:', error);
+    throw error;
+  }
+};
+
+export const getAllBusinessConfigs = async (): Promise<BusinessConfig[]> => {
+  try {
+    const querySnapshot = await getDocs(collection(db, 'businessConfigs'));
+    const configs: BusinessConfig[] = [];
+    
+    querySnapshot.forEach((doc) => {
+      configs.push(doc.data() as BusinessConfig);
+    });
+    
+    return configs;
+  } catch (error) {
+    console.error('Error getting all business configs:', error);
+    throw error;
+  }
+};
+
+// Initialize the default barbersbar business configuration
+export const initializeBarbersBarConfig = async (): Promise<void> => {
+  try {
+    const barbersBarConfig: BusinessConfig = {
+      businessId: "barbersbar",
+      businessName: "Barbers Bar",
+      ownerPhone: "+972523985505", // User's actual phone number
+      cancelPolicy: {
+        hoursBeforeAppointment: 2,
+        message: "אי אפשר לבטל - תתקשר למספרה"
+      }
+    };
+
+    // Check if config already exists
+    const existingConfig = await getBusinessConfig("barbersbar");
+    if (!existingConfig) {
+      await setBusinessConfig(barbersBarConfig);
+      console.log('✅ BarbersBar business config initialized successfully');
+    } else {
+      console.log('ℹ️ BarbersBar business config already exists');
+    }
+  } catch (error) {
+    console.error('Error initializing BarbersBar config:', error);
+    throw error;
+  }
+};
+
+// Test SMS function with specific phone number
+export const testSMSToOwner = async (): Promise<any> => {
+  try {
+    const testPhone = "0523985505"; // User's number
+    console.log('🧪 Testing SMS to owner phone:', testPhone);
+    
+    const result = await sendSMSVerification(testPhone);
+    console.log('✅ Test SMS sent successfully!');
+    console.log('📱 Verification ID:', result.verificationId);
+    
+    if (result._generatedCode) {
+      console.log('🔐 Generated code:', result._generatedCode);
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('❌ Test SMS failed:', error);
+    throw error;
   }
 };

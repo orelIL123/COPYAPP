@@ -1,20 +1,22 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-const twilio = require('twilio');
+const { Vonage } = require('@vonage/server-sdk');
 
 // Initialize Firebase Admin
 admin.initializeApp();
 
-// Twilio configuration - these should be set as environment variables
-// Run: firebase functions:config:set twilio.account_sid="your_account_sid" twilio.auth_token="your_auth_token" twilio.phone_number="your_twilio_phone"
-const accountSid = functions.config().twilio?.account_sid;
-const authToken = functions.config().twilio?.auth_token;
-const twilioPhoneNumber = functions.config().twilio?.phone_number;
+// Vonage configuration - these should be set as environment variables
+// Run: firebase functions:config:set vonage.api_key="2584a257" vonage.api_secret="vZfr3JqIG9LFHsZr"
+const vonageApiKey = functions.config().vonage?.api_key || '2584a257';
+const vonageApiSecret = functions.config().vonage?.api_secret || 'vZfr3JqIG9LFHsZr';
 
-// Initialize Twilio client
-let twilioClient = null;
-if (accountSid && authToken) {
-  twilioClient = twilio(accountSid, authToken);
+// Initialize Vonage client
+let vonageClient = null;
+if (vonageApiKey && vonageApiSecret) {
+  vonageClient = new Vonage({
+    apiKey: vonageApiKey,
+    apiSecret: vonageApiSecret
+  });
 }
 
 // SMS sending function
@@ -42,32 +44,38 @@ exports.sendSMS = functions.https.onRequest(async (req, res) => {
       return;
     }
 
-    // Generate 6-digit verification code
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    // Get the verification code from the request (sent by Firebase Auth or generate for fallback)
+    const verificationCode = req.body.code || Math.floor(100000 + Math.random() * 900000).toString();
     const fullMessage = `${message || 'קוד האימות שלך הוא: '}${verificationCode}`;
     
     console.log(`Sending SMS to ${phoneNumber}: ${fullMessage}`);
 
-    if (twilioClient && twilioPhoneNumber) {
-      // Send real SMS via Twilio
+    if (vonageClient) {
+      // Send real SMS via Vonage
       try {
-        const smsResult = await twilioClient.messages.create({
-          body: fullMessage,
-          from: twilioPhoneNumber,
-          to: phoneNumber
+        const smsResult = await vonageClient.sms.send({
+          to: phoneNumber,
+          from: 'BarbersBar', // Sender ID - can be customized
+          text: fullMessage
         });
         
-        console.log(`SMS sent successfully: ${smsResult.sid}`);
+        console.log(`SMS sent successfully via Vonage:`, smsResult);
         
-        res.status(200).json({
-          success: true,
-          code: verificationCode,
-          verificationId: `twilio-${Date.now()}`,
-          message: 'SMS sent successfully via Twilio',
-          sid: smsResult.sid
-        });
-      } catch (twilioError) {
-        console.error('Twilio SMS failed:', twilioError);
+        // Check if message was sent successfully
+        if (smsResult.messages && smsResult.messages[0].status === '0') {
+          res.status(200).json({
+            success: true,
+            code: verificationCode,
+            verificationId: `vonage-${Date.now()}`,
+            message: 'SMS sent successfully via Vonage',
+            messageId: smsResult.messages[0]['message-id']
+          });
+        } else {
+          console.error('Vonage SMS failed:', smsResult.messages[0]['error-text']);
+          throw new Error(smsResult.messages[0]['error-text']);
+        }
+      } catch (vonageError) {
+        console.error('Vonage SMS failed:', vonageError);
         
         // Fallback to mock for development
         console.log(`DEVELOPMENT: SMS code for ${phoneNumber} is: ${verificationCode}`);
@@ -76,7 +84,8 @@ exports.sendSMS = functions.https.onRequest(async (req, res) => {
           code: verificationCode,
           verificationId: `dev-${Date.now()}`,
           message: 'SMS sent (development mode - check logs)',
-          development: true
+          development: true,
+          error: vonageError.message
         });
       }
     } else {
@@ -100,7 +109,7 @@ exports.sendSMS = functions.https.onRequest(async (req, res) => {
   }
 });
 
-// Alternative SMS function using a different SMS service (like SMS API services)
+// Alternative SMS function using Vonage with different configuration
 exports.sendSMSAlternative = functions.https.onRequest(async (req, res) => {
   // Enable CORS
   res.set('Access-Control-Allow-Origin', '*');
@@ -113,23 +122,44 @@ exports.sendSMSAlternative = functions.https.onRequest(async (req, res) => {
   }
 
   try {
-    const { phoneNumber, message } = req.body;
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const { phoneNumber, message, code } = req.body;
+    const verificationCode = code || Math.floor(100000 + Math.random() * 900000).toString();
     const fullMessage = `${message || 'קוד האימות שלך הוא: '}${verificationCode}`;
     
-    // Example using a different SMS API service (replace with actual service)
-    // const smsApiUrl = 'https://api.sms-service.com/send';
-    // const smsApiKey = functions.config().sms?.api_key;
-    
-    // For now, just return the code for development
-    console.log(`Alternative SMS to ${phoneNumber}: ${fullMessage}`);
-    
-    res.status(200).json({
-      success: true,
-      code: verificationCode,
-      verificationId: `alt-${Date.now()}`,
-      message: 'SMS sent via alternative service'
-    });
+    if (vonageClient) {
+      try {
+        const smsResult = await vonageClient.sms.send({
+          to: phoneNumber,
+          from: 'BarberShop', // Alternative sender ID
+          text: fullMessage
+        });
+        
+        if (smsResult.messages && smsResult.messages[0].status === '0') {
+          res.status(200).json({
+            success: true,
+            code: verificationCode,
+            verificationId: `vonage-alt-${Date.now()}`,
+            message: 'SMS sent via Vonage alternative',
+            messageId: smsResult.messages[0]['message-id']
+          });
+        } else {
+          throw new Error(smsResult.messages[0]['error-text']);
+        }
+      } catch (vonageError) {
+        console.error('Vonage alternative SMS failed:', vonageError);
+        throw vonageError;
+      }
+    } else {
+      // Development fallback
+      console.log(`Alternative SMS to ${phoneNumber}: ${fullMessage}`);
+      res.status(200).json({
+        success: true,
+        code: verificationCode,
+        verificationId: `alt-dev-${Date.now()}`,
+        message: 'SMS sent via alternative service (development)',
+        development: true
+      });
+    }
     
   } catch (error) {
     console.error('Error in alternative SMS:', error);

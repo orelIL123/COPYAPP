@@ -21,7 +21,10 @@
       },
       "ios": {
         "simulator": false,
-        "credentialsSource": "remote"
+        "credentialsSource": "remote",
+        "cache": {
+          "key": "ios-production-{{ platform }}"
+        }
       }
     }
   },

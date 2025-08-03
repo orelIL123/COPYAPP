@@ -9,12 +9,29 @@ import '../app/globals.css';
 import i18n from './i18n';
 
 import { useColorScheme } from 'react-native';
+import { useEffect } from 'react';
+import { initializeBarbersBarConfig } from '../services/firebase';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+
+  // Initialize business configuration on app startup
+  useEffect(() => {
+    const initBusinessConfig = async () => {
+      try {
+        await initializeBarbersBarConfig();
+      } catch (error) {
+        console.error('Failed to initialize business config:', error);
+      }
+    };
+
+    if (loaded) {
+      initBusinessConfig();
+    }
+  }, [loaded]);
 
   if (!loaded) {
     // Async font loading only occurs in development.
