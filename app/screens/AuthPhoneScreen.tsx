@@ -107,10 +107,12 @@ export default function AuthPhoneScreen() {
     setLoading(true);
     try {
       if (isRegisterMode) {
-        // הרשמה - אימות קוד ויצירת משתמש עם סיסמא
-        const user = await registerUserWithPhone(emailOrPhone, displayName, confirmationResult, verificationCode);
-        // עדכון הסיסמא למשתמש החדש
-        await setPasswordForPhoneUser(emailOrPhone, registrationPassword);
+        // First, verify the code
+        await verifySMSCode(confirmationResult, verificationCode);
+        
+        // If verification is successful, then register the user
+        const user = await registerUserWithPhone(emailOrPhone, displayName, registrationPassword);
+        
         Alert.alert('הצלחה', 'ההרשמה הושלמה בהצלחה!');
         router.replace('/(tabs)');
       } else {

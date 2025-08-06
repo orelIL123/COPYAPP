@@ -30,6 +30,7 @@ import { deleteObject, getDownloadURL, listAll, ref, uploadBytes } from 'firebas
 import { auth, db, storage } from '../config/firebase';
 import { CacheUtils } from './cache';
 import { ImageOptimizer } from './imageOptimization';
+import { messagingService } from './messaging';
 
 // Export db for use in other components
 export { db };
@@ -278,7 +279,7 @@ export const onAuthStateChange = (callback: (user: User | null) => void) => {
   return onAuthStateChanged(auth, callback);
 };
 
-// Phone authentication functions using Vonage SMS
+// Phone authentication functions using messaging service
 export const sendSMSVerification = async (phoneNumber: string) => {
   try {
     // The phone number should be in international format
@@ -293,39 +294,33 @@ export const sendSMSVerification = async (phoneNumber: string) => {
       }
     }
     
-    console.log('📱 Sending Vonage SMS to:', formattedPhone);
+    console.log('📱 Sending SMS to:', formattedPhone);
 
     // Generate verification code
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const message = `קוד האימות שלך הוא: ${verificationCode}`;
     
     try {
-      // Call Firebase Function to send SMS via Vonage
-      const projectId = process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID;
-      const response = await fetch(`https://us-central1-${projectId}.cloudfunctions.net/sendSMS`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          phoneNumber: formattedPhone,
-          code: verificationCode,
-          message: 'קוד האימות שלך הוא: '
-        }),
+      // Use messaging service to send SMS
+      const result = await messagingService.sendMessage({
+        to: formattedPhone,
+        message,
+        type: 'sms',
+        metadata: {
+          code: verificationCode
+        }
       });
-
-      const result = await response.json();
       
       if (result.success) {
-        console.log('✅ Vonage SMS sent successfully to:', formattedPhone);
+        console.log(`✅ SMS sent successfully via ${result.provider} to:`, formattedPhone);
         
         return {
-          verificationId: result.verificationId,
+          verificationId: result.messageId || `${result.provider}-${Date.now()}`,
           _generatedCode: verificationCode,
           confirm: async (inputCode: string) => {
             console.log('🔍 Verifying code:', inputCode, 'against:', verificationCode);
             
             if (inputCode === verificationCode) {
-              // Create successful verification result
               return { 
                 user: { 
                   uid: 'user-' + formattedPhone.replace(/[^0-9]/g, ''), 
@@ -343,7 +338,7 @@ export const sendSMSVerification = async (phoneNumber: string) => {
       }
       
     } catch (smsError: any) {
-      console.error('⚠️ Vonage SMS failed:', smsError.message);
+      console.error('⚠️ SMS failed:', smsError.message);
       
       // Development fallback - just log the code
       console.log('🔐 DEVELOPMENT: SMS code for', formattedPhone, 'is:', verificationCode);
@@ -453,7 +448,7 @@ export const sendAppointmentNotification = async (userId: string, appointmentDat
   }
 };
 
-export const registerUserWithPhone = async (phoneNumber: string, displayName: string, verificationId: string, verificationCode: string) => {
+export const registerUserWithPhone = async (phoneNumber: string, displayName:string, password: string) => {
   try {
     // Format phone number consistently
     let formattedPhone = phoneNumber;
@@ -467,10 +462,9 @@ export const registerUserWithPhone = async (phoneNumber: string, displayName: st
     
     // Create a unique temporary email for this phone user
     const tempEmail = `${formattedPhone.replace(/[^0-9]/g, '')}@phone.barbersbar.com`;
-    const tempPassword = verificationCode + Date.now().toString(); // Use verification code + timestamp as password
     
     // Create user with email/password (since phone auth requires special setup)
-    const userCredential = await createUserWithEmailAndPassword(auth, tempEmail, tempPassword);
+    const userCredential = await createUserWithEmailAndPassword(auth, tempEmail, password);
     const user = userCredential.user;
     
     await updateProfile(user, {

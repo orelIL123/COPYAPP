@@ -86,9 +86,12 @@ export default function AuthPhoneScreen() {
         let userCredential;
         
         if (isRegisterMode) {
-          userCredential = await createUserWithEmailAndPassword(auth, authCredential, password);
+          const userCredential = await createUserWithEmailAndPassword(auth, authCredential, password);
+          const user = userCredential.user;
+          // Now, you can create the user profile in your database
+          // Example: await createUserProfile(user.uid, { ... });
         } else {
-          userCredential = await signInWithEmailAndPassword(auth, authCredential, password);
+          await signInWithEmailAndPassword(auth, authCredential, password);
         }
         
         const user = userCredential.user;

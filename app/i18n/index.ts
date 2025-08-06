@@ -10,43 +10,46 @@ const resources = {
   en: { translation: en }
 };
 
-const initI18n = async () => {
-  let savedLanguage = 'he'; // Default to Hebrew
-  
+// Initialize i18n synchronously with default values to prevent crashes
+i18n
+  .use(initReactI18next)
+  .init({
+    resources,
+    lng: 'he', // Default language
+    fallbackLng: 'he',
+    interpolation: {
+      escapeValue: false,
+    },
+    react: {
+      useSuspense: false,
+    },
+  });
+
+// Load saved language asynchronously after initial setup
+const loadSavedLanguage = async () => {
   try {
     const stored = await AsyncStorage.getItem('app_language');
-    if (stored) {
-      savedLanguage = stored;
+    if (stored && (stored === 'he' || stored === 'en')) {
+      await i18n.changeLanguage(stored);
     }
   } catch (error) {
     console.log('Error loading saved language:', error);
+    // Continue with default language
   }
-
-  i18n
-    .use(initReactI18next)
-    .init({
-      resources,
-      lng: savedLanguage,
-      fallbackLng: 'he',
-      interpolation: {
-        escapeValue: false,
-      },
-      react: {
-        useSuspense: false,
-      },
-    });
 };
 
 export const changeLanguage = async (language: string) => {
   try {
-    await AsyncStorage.setItem('app_language', language);
-    i18n.changeLanguage(language);
+    if (language === 'he' || language === 'en') {
+      await AsyncStorage.setItem('app_language', language);
+      await i18n.changeLanguage(language);
+    }
   } catch (error) {
     console.log('Error saving language:', error);
   }
 };
 
-// Initialize
-initI18n();
+// Load saved language after initialization
+loadSavedLanguage();
 
 export default i18n;

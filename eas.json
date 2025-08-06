@@ -24,7 +24,9 @@
         "credentialsSource": "remote",
         "cache": {
           "key": "ios-production-{{ platform }}"
-        }
+        },
+        "image": "latest",
+        "buildConfiguration": "Release"
       }
     }
   },

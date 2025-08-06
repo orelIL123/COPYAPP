@@ -2,15 +2,16 @@
   "expo": {
     "name": "Barbers Bar",
     "slug": "barbers-bar",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "barbersbar",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.barbersbar.app",
+      "buildNumber": "4",
       "googleServicesFile": "./app/GoogleService-Info.plist",
       "config": {
         "usesNonExemptEncryption": false
@@ -28,6 +29,7 @@
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
       },
+      "versionCode": 4,
       "edgeToEdgeEnabled": true,
       "package": "com.barbersbar.app",
       "googleServicesFile": "./app/google-services.json"

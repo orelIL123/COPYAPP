@@ -1,15 +1,15 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-    Dimensions,
-    Image,
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  Image,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
